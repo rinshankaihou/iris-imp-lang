@@ -36,6 +36,8 @@ Inductive stmt :=
   | Sseq (s1 s2 : stmt)
   | Sif (e : expr) (s1 s2 : stmt)
   | Swhile (e : expr) (s : stmt)
+  | Sbreak
+  | Scontinue
   | Scall (x : string) (f : string) (args : list expr)
   | Sreturn (e : expr)
 .
@@ -95,19 +97,40 @@ Definition bin_op_eval (op: bin_op) (v1 v2: val) : option val :=
   | EqOp => Some (BoolV $ bool_decide (v1 = v2))
   end.
 
+(* make into a list? *)
+Inductive cont :=
+  | Kstop
+  | Kseq (s : stmt) (k : cont)
+  | Kwhile (e : expr) (s : stmt) (k : cont)
+  | Kcall (x : string) (r : gmap string val) (k : cont).
+
+Fixpoint find_loop k :=
+  match k with
+  | Kseq _ k' => find_loop k'
+  | Kwhile _ _ _ => Some k
+  | _ => None
+  end.
+
+Fixpoint find_call k :=
+  match k with
+  | Kseq _ k' => find_call k'
+  | Kwhile _ _ k' => find_call k'
+  | Kcall _ _ _ => Some k
+  | _ => None
+  end.
+
 Record state : Type := {
   (* variables and their values on the current stack frame*)
   ρ : gmap string val;
   (* heap mapping locations to values *)
   m : gmap loc val;
-  (* each element in the stack k is a pair of the previous variable environment 
-    and a variable that will get the return value once the program returns *)
-  k : list (gmap string val * string);
+  (* continuation instead of stack *)
+  k : cont;
 }.
 
 (** the language interface needs these things to be inhabited, I believe *)
 Global Instance state_inhabited : Inhabited state :=
-  populate {| ρ := inhabitant; m := inhabitant; k := []  |}.
+  populate {| ρ := inhabitant; m := inhabitant; k := Kstop  |}.
 Global Instance val_inhabited : Inhabited val := populate (NumV 0).
 Global Instance expr_inhabited : Inhabited expr := populate (Num 0).
 
@@ -178,30 +201,42 @@ Inductive step : func_env -> stmt → state → stmt → state → Prop :=
     σ.(m) !! l = Some v1 →
     step F (Sstore e1 e2) σ Sskip
               (σ <| m ::= <[l := v2]> |>)
-  | SeqS1 F s1 s1' s2 σ σ':
-    step F s1 σ s1' σ' →
-    step F (Sseq s1 s2) σ (Sseq s1' s2) σ'
-  | SeqS2 F s2 σ :
-    step F (Sseq Sskip s2) σ s2 σ
+  | SeqS F s1 s2 σ :
+    step F (Sseq s1 s2) σ s1 (σ <| k := Kseq s2 σ.(k) |>)
+  | SkipSeqS F s2 σ k0 :
+    σ.(k) = Kseq s2 k0 →
+    step F Sskip σ s2 (σ <| k := k0 |>)
   | IfS F e s1 s2 σ v :
     eval_expr' e σ (NumV v) →
     step F (Sif e s1 s2) σ (if Z.eqb v 0 then s2 else s1) σ
-  | WhileS F e s σ v :
-    eval_expr' e σ (NumV v) →
-    step F (Swhile e s) σ (if Z.eqb v 0 then Sskip else Sseq s (Swhile e s)) σ
+  | WhileTS F e s σ v :
+    eval_expr' e σ (NumV v) → v ≠ 0 →
+    step F (Swhile e s) σ s (σ <| k := Kwhile e s σ.(k) |>)
+  | WhileFS F e s σ :
+    eval_expr' e σ (NumV 0) →
+    step F (Swhile e s) σ Sskip σ
+  | SkipWhileS F e s k0 σ :
+    σ.(k) = Kwhile e s k0 →
+    step F Sskip σ (Swhile e s) (σ <| k := k0 |>)
+  | BreakS F σ e s k' :
+    find_loop σ.(k) = Some (Kwhile e s k') →
+    step F Sbreak σ Sskip (σ <| k := k' |>)
+  | ContinueS F σ e s k' :
+    find_loop σ.(k) = Some (Kwhile e s k') →
+    step F Scontinue σ Sskip (σ <| k := Kwhile e s k' |>)
   | CallS F f es σ ps s vs rv :
     F !! f = Some (Func ps s) →
     length ps = length es →
     eval_exprs' es σ vs →
     let ρ' := bind_vars σ.(ρ) ps vs in
-    let k' := ((σ.(ρ), rv) :: σ.(k)) in
+    let k' := Kcall rv σ.(ρ) σ.(k) in
     step F (Scall rv f es) σ s 
                 (σ <| ρ := ρ' |> <| k:=k' |>)
-  | ReturnS F e σ v ρ m ρ0 r k :
+  | ReturnS F e σ v ρ0 r k' :
     eval_expr' e σ v →
-    σ = Build_state ρ m ((ρ0, r) :: k) →
+    find_call σ.(k) = Some (Kcall r ρ0 k') →
     step F (Sreturn e) σ Sskip 
-              (Build_state (<[r := v]> ρ0) m k)
+              (Build_state (<[r := v]> ρ0) σ.(m) k')
   .
 
 Definition fresh_locs (ls : gset loc) : loc :=
