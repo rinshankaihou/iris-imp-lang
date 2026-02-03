@@ -1,7 +1,6 @@
 From stdpp Require Export binders strings.
 From stdpp Require Import gmap.
 From iris.algebra Require Export ofe.
-(* From iris.program_logic Require Export language ectx_language ectxi_language. *)
 From iris.prelude Require Import options.
 Open Scope Z.
 From RecordUpdate Require Import RecordSet.

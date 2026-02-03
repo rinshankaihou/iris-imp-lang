@@ -3,7 +3,10 @@ From iris.algebra Require Import excl auth gmap.
 From iris.base_logic Require Import own.
 From iris.bi Require Export monpred.
 From iris.proofmode Require Export proofmode.
-From iris_simp_lang Require Import implang.
+
+Section val.
+
+Context {val : Type}.
 
 Definition env_state := (gmap nat (gmap string val))%type.
 
@@ -215,5 +218,8 @@ Qed.
 
 End env.
 
-Global Instance: Params (@points_to_var) 2 := {}.
+End val.
+
+Arguments envGS : clear implicits.
+Global Instance: Params (@points_to_var) 3 := {}.
 Global Opaque points_to_var.
