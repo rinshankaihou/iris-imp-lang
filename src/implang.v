@@ -8,11 +8,6 @@ From RecordUpdate Require Import RecordSet.
 Import RecordSetNotations.
 
 
-Inductive base_lit :=
-  | LitInt (n:Z)
-  (* not sure if unit is necessary *)
-  | LitUnit.
-
 Inductive bin_op :=
   | PlusOp
   | EqOp.
@@ -20,19 +15,9 @@ Inductive bin_op :=
 Inductive un_op :=
   | DerefOp.
 
-(*|
-Expressions are defined mutually recursively with values. As explained above, an
-expression is a value iff it uses the Val constructor, which makes defining
-reduction and substitution much simpler, but requires duplicating `Rec` and
-`Pair` to `val` as `RecV` and `PairV`.
-|*)
-
-Variant val :=
-  | LitV (l : base_lit).
-
 Inductive expr :=
   (* Values *)
-  | Val (v : val)
+  | Num (n : Z)
   (* local variable *)
   | Var (x : string)
   (* Pure operations *)
@@ -58,43 +43,21 @@ Inductive stmt :=
 Inductive func :=
   | Func (func_params : list string) (func_body : stmt).
 
-Bind Scope val_scope with val.
 Bind Scope expr_scope with expr.
 Bind Scope stmt_scope with stmt.
 Bind Scope func_scope with func.
 
-Notation of_val := Val (only parsing).
-
-Definition to_val (e : expr) : option val :=
-  match e with
-  | Val v => Some v
-  | _ => None
-  end.
-
 (** Equality and other typeclass stuff *)
-Lemma to_of_val v : to_val (of_val v) = Some v.
-Proof. by destruct v. Qed.
-
-Lemma of_to_val e v : to_val e = Some v → of_val v = e.
-Proof. destruct e=>//=. by intros [= <-]. Qed.
-
-Global Instance of_val_inj : Inj (=) (=) of_val.
-Proof. intros ??. congruence. Qed.
 
 (*|
 We will now do a bunch of boring work to prove that expressions have decidable
 equality and are countable for technical reasons.
 |*)
 
-Global Instance base_lit_eq_dec : EqDecision base_lit.
-Proof. solve_decision. Defined.
 Global Instance bin_op_eq_dec : EqDecision bin_op.
 Proof. solve_decision. Defined.
 Global Instance un_op_eq_dec : EqDecision un_op.
 Proof. solve_decision. Defined.
-Lemma val_eq_dec (v1 v2 : val) : Decision (v1 = v2).
-Proof. solve_decision. Defined.
-Global Instance val_eq_dec' : EqDecision val := val_eq_dec.
 Lemma expr_eq_dec (e1 e2: expr) : Decision (e1 = e2).
 Proof. solve_decision. Defined.
 Global Instance expr_eq_dec' : EqDecision expr := expr_eq_dec.
@@ -104,22 +67,6 @@ Global Instance stmt_eq_dec' : EqDecision stmt := stmt_eq_dec.
 Lemma func_eq_dec (f1 f2: func) : Decision (f1 = f2).
 Proof. solve_decision. Defined.
 Global Instance func_eq_dec' : EqDecision func := func_eq_dec.
-
-Global Instance base_lit_countable : Countable base_lit.
-Proof.
-  refine (inj_countable'
-            (λ l, match l with | LitInt n => inl n | LitUnit => inr () end)
-            (λ v, match v with | inl n => _ | inr _ => _ end) _).
-  intros []; eauto.
-Qed.
-
-Global Instance val_countable : Countable val.
-Proof. 
-  refine (inj_countable'
-            (λ l, match l with | LitV l' => l' end)
-            (λ v, LitV v) _).
-  intros []; eauto.
-Qed.
 
 Global Instance bin_op_countable : Countable bin_op.
 Proof.
@@ -144,7 +91,7 @@ Proof.
  set (enc :=
    fix go e :=
      match e with
-     | Val v => GenLeaf (inl (inl v))
+     | Num v => GenLeaf (inl (inl v))
      | Var x => GenLeaf (inl (inr x))
      | UnOp op e => GenNode 1 [GenLeaf (inr (inl op)); go e]
      | BinOp op e1 e2 => GenNode 2 [GenLeaf (inr (inr op)); go e1; go e2]
@@ -152,13 +99,13 @@ Proof.
  set (dec :=
    fix go e :=
       match e with
-      | GenLeaf (inl (inl v)) => Val v
+      | GenLeaf (inl (inl v)) => Num v
       | GenLeaf (inl (inr x)) => Var x
       | GenNode 1 [GenLeaf (inr (inl op)); e] =>
         UnOp op $ go e
       | GenNode 2 [GenLeaf (inr (inr op)); e1; e2] =>
         BinOp op (go e1) (go e2)
-      | _ => Val (LitV LitUnit)  (* default case, won't be used *)
+      | _ => Num 0  (* default case, won't be used *)
       end).
  refine (inj_countable' enc dec _) => e.
  induction e; simpl; f_equal; done.
@@ -197,22 +144,36 @@ Now we'll give the pure semantics of simp_lang. These two Gallina definitions
 when the types of their arguments make sense.
 |*)
 
-Definition LitBool (b:bool) : base_lit :=
-  if b then LitInt 1 else LitInt 0.
+Definition Bool (b:bool) : expr := Num (if b then 1 else 0).
+
+(* semantics *)
+Definition loc := Z.
+
+Inductive val :=
+  | NumV (n : Z)
+  | LocV (l : loc).
+
+Lemma val_eq_dec (v1 v2 : val) : Decision (v1 = v2).
+Proof. solve_decision. Defined.
+Global Instance val_eq_dec' : EqDecision val := val_eq_dec.
+
+Global Instance val_countable : Countable val.
+Proof. 
+Admitted.
+
+Definition BoolV (b:bool) : val := NumV (if b then 1 else 0).
 
 Definition bin_op_eval (op: bin_op) (v1 v2: val) : option val :=
   match op with
   | PlusOp => match v1, v2 with
-              | LitV (LitInt n1), LitV (LitInt n2) =>
-                Some (LitV (LitInt (n1 + n2)))
+              | NumV n1, NumV n2 =>
+                Some (NumV (n1 + n2))
+              | LocV n1, NumV n2 | NumV n1, LocV n2 =>
+                Some (LocV (n1 + n2))
               | _, _ => None
               end
-  | EqOp => Some (LitV $ LitBool $ bool_decide (v1 = v2))
+  | EqOp => Some (BoolV $ bool_decide (v1 = v2))
   end.
-
-(* semantics *)
-
-Definition loc := Z.
 
 Record state : Type := {
   (* variables and their values on the current stack frame*)
@@ -227,8 +188,8 @@ Record state : Type := {
 (** the language interface needs these things to be inhabited, I believe *)
 Global Instance state_inhabited : Inhabited state :=
   populate {| ρ := inhabitant; m := inhabitant; k := []  |}.
-Global Instance val_inhabited : Inhabited val := populate (LitV LitUnit).
-Global Instance expr_inhabited : Inhabited expr := populate (Val inhabitant).
+Global Instance val_inhabited : Inhabited val := populate (NumV 0).
+Global Instance expr_inhabited : Inhabited expr := populate (Num 0).
 
 #[export] Instance settable_state : Settable state :=
   settable! Build_state <ρ; m; k>. 
@@ -240,7 +201,7 @@ Example state_upd_heap (f: gmap loc val → gmap loc val) (s: state) : state :=
 
 Inductive eval_expr : expr → gmap string val → gmap loc val → val → Prop :=
   | EvalVal v ρ m :
-    eval_expr (Val v) ρ m v
+    eval_expr (Num v) ρ m (NumV v)
   | EvalVar x v ρ m :
     ρ !! x = Some v →
     eval_expr (Var x) ρ m v
@@ -250,14 +211,14 @@ Inductive eval_expr : expr → gmap string val → gmap loc val → val → Prop
     bin_op_eval op v1 v2 = Some v →
     eval_expr (BinOp op e1 e2) ρ m v
   | EvalLoad e v l ρ m :
-    eval_expr e ρ m (LitV (LitInt l)) →
+    eval_expr e ρ m (LocV l) →
     m !! l = Some v →
     eval_expr (UnOp DerefOp e) ρ m v
   .
 
 Fixpoint exec_eval_expr (e : expr) (ρ : gmap string val) (m : gmap loc val) : option val :=
   match e with
-  | Val v => Some v
+  | Num v => Some (NumV v)
   | Var x => ρ !! x
   | BinOp op e1 e2 =>
     v1 ← exec_eval_expr e1 ρ m ;
@@ -266,7 +227,7 @@ Fixpoint exec_eval_expr (e : expr) (ρ : gmap string val) (m : gmap loc val) : o
   | UnOp op e1 =>
     v1 ← exec_eval_expr e1 ρ m ;
     match op, v1 with
-    | DerefOp, LitV (LitInt l) =>
+    | DerefOp, LocV l =>
       m !! l
     | _, _ => None
     end
@@ -288,10 +249,10 @@ Inductive base_step : func_env -> stmt → state → stmt → state → Prop :=
   | AllocS F x σ l :
     σ.(m) !! l = None →
     base_step F (Salloc x) σ Sskip
-              (σ <| ρ ::= <[x := LitV $ LitInt l]> |>
-                 <| m ::= <[l := LitV LitUnit]> |>)
+              (σ <| ρ ::= <[x := LocV l]> |>
+                 <| m ::= <[l := NumV 0]> |>)
   | StoreS F e1 e2 σ l v1 v2 :
-    eval_expr' e1 σ (LitV (LitInt l)) →
+    eval_expr' e1 σ (LocV l) →
     eval_expr' e2 σ v2 →
     (* must be allocated *)
     σ.(m) !! l = Some v1 →
@@ -303,10 +264,10 @@ Inductive base_step : func_env -> stmt → state → stmt → state → Prop :=
   | SeqS2 F s2 σ :
     base_step F (Sseq Sskip s2) σ s2 σ
   | IfS F e s1 s2 σ v :
-    eval_expr' e σ (LitV $ LitInt v) →
+    eval_expr' e σ (NumV v) →
     base_step F (Sif e s1 s2) σ (if Z.eqb v 0 then s2 else s1) σ
   | WhileS F e s σ v :
-    eval_expr' e σ (LitV $ LitInt v) →
+    eval_expr' e σ (NumV v) →
     base_step F (Swhile e s) σ (if Z.eqb v 0 then Sskip else Sseq s (Swhile e s)) σ
   | CallS F f es σ ps s vs rv :
     F !! f = Some (Func ps s) →
@@ -340,8 +301,8 @@ prove a WP for it *)
 Lemma alloc_fresh F x σ :
   (* this invocation of [dom] is for backwards compatibility with Iris 3.6.0 *)
   let l := fresh_locs (@dom _ (gset _) _ σ.(m)) in
-  base_step F (Salloc x) σ Sskip (σ <| ρ ::= <[x := LitV $ LitInt l]> |>
-                                    <| m ::= <[l := LitV LitUnit]> |>).
+  base_step F (Salloc x) σ Sskip (σ <| ρ ::= <[x := LocV l]> |>
+                                    <| m ::= <[l := NumV 0]> |>).
 Proof.
   intros.
   apply AllocS.
