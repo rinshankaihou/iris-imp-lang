@@ -16,6 +16,7 @@ src/simp.v
 src/adequacy.v
 src/implang.v
 src/imp_notation.v
+src/stack_ra.v
 
 src/examples/swap.v
 src/examples/spawn.v
