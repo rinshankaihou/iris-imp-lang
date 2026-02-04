@@ -44,6 +44,8 @@ Proof. solve_decision. Defined.
 Global Instance func_eq_dec' : EqDecision func := func_eq_dec.
 
 (* semantics *)
+Notation stack := (list (gmap string val * string)).
+
 Record state : Type := {
   (* variables and their values on the current stack frame*)
   ρ : gmap string val;
@@ -51,7 +53,7 @@ Record state : Type := {
   m : gmap loc val;
   (* each element in the stack k is a pair of the previous variable environment 
     and a variable that will get the return value once the program returns *)
-  k : list (gmap string val * string);
+  k : stack;
 }.
 
 (** the language interface needs these things to be inhabited, I believe *)
