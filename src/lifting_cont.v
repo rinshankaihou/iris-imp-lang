@@ -1,6 +1,5 @@
 From iris.base_logic Require Import gen_heap.
-From iris.base_logic.lib Require Export fancy_updates.
-From iris_simp_lang Require Import imp_cont_notation stack_ra.
+From iris_simp_lang Require Import imp_cont_notation stack_ra lifting_expr.
 
 Section wp.
 
@@ -36,6 +35,13 @@ Definition wp_sk := wp_sk_aux.(unseal).
 Local Lemma wp_sk_unseal   : wp_sk = @wp_sk_def.
 Proof. rewrite -wp_sk_aux.(seal_eq) //. Qed.
 
+Record postassert :=
+  { Qnormal : iProp Σ; Qbreak : iProp Σ; Qcontinue : iProp Σ; Qreturn : val → iProp Σ }.
 
-  
+Definition guarded F E Q k R :=
+  (Qnormal Q -∗ wp_sk F E Sskip k R) ∧
+  (Qbreak Q -∗ ∃ e s k', ⌜find_loop k = Some (Kwhile e s k')⌝ ∧ wp_sk F E Sskip k' R) ∧
+  (Qcontinue Q -∗ ∃ k', ⌜find_loop k = Some k'⌝ ∧ wp_sk F E Sskip k' R) ∧
+  (∀ e, wp_expr E e (Qreturn Q) -∗ ∃ k', ⌜find_call k = Some k'⌝ ∧ wp_sk F E (Sreturn e) k' R).
+
 End wp.
