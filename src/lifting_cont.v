@@ -5,8 +5,6 @@ Section wp.
 
 Context `{!gen_heapGS loc val Σ} `{!envGS val Σ} `{!invGS_gen HasNoLc Σ}.
 
-Definition state_interp σ ρ := (gen_heap_interp σ ∗ env_auth ρ)%I.
-
 Fixpoint cont_to_stack k : env_state * nat :=
   match k with
   | Kstop => (∅, O)
@@ -16,8 +14,8 @@ Fixpoint cont_to_stack k : env_state * nat :=
 
 Definition stack_match ρ r k := let '(ρ0, n) := cont_to_stack k in ρ = <[n := r]>ρ0.
 
-Definition wp_sk_pre (wp : func_env -d> coPset -d> stmt -d> cont -d> iPropO Σ -d> iPropO Σ) :
-    func_env -d> coPset -d> stmt -d> cont -d> iPropO Σ -d> iPropO Σ := λ F E s k Q,
+Definition wp_sk_pre (wp : func_env -d> coPset -d> stmt -d> cont -d> assert -d> assert) :
+    func_env -d> coPset -d> stmt -d> cont -d> assert -d> assert := λ F E s k Q,
  ((⌜s = Sskip ∧ k = Kstop⌝ ∗ |={E}=> Q) ∨
   ∀ σ ρ, state_interp σ ρ ={E,∅}=∗ ∀ r, ⌜stack_match ρ r k⌝ -∗ ∃ s' r' σ' k',
         ⌜step F s (Build_state r σ k) s' (Build_state r' σ' k')⌝ ∗
@@ -36,7 +34,7 @@ Local Lemma wp_sk_unseal   : wp_sk = @wp_sk_def.
 Proof. rewrite -wp_sk_aux.(seal_eq) //. Qed.
 
 Record postassert :=
-  { Qnormal : iProp Σ; Qbreak : iProp Σ; Qcontinue : iProp Σ; Qreturn : val → iProp Σ }.
+  { Qnormal : assert; Qbreak : assert; Qcontinue : assert; Qreturn : val → assert }.
 
 Definition guarded F E Q k R :=
   (Qnormal Q -∗ wp_sk F E Sskip k R) ∧
