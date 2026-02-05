@@ -55,10 +55,12 @@ Proof.
     iPureIntro; econstructor; eauto.
 Qed.
 
+About pointsto.
+
 Notation "l ↦ v" := (pointsto(Σ:=Σ) l (DfracOwn 1) v) (at level 20).
 
-Lemma wp_load E (Q: val -> assert) op e v:
-    wp_expr E e (λ l, ∃ v, ⎡l ↦ v⎤ ∗ (⎡l ↦ v⎤ -∗ Q v))
+Lemma wp_load E (Q: val -> assert) op e:
+    wp_expr E e (λ v0, ∃ l v, ⌜v0 = LocV l⌝ ∧ ⎡l ↦ v⎤ ∗ (⎡l ↦ v⎤ -∗ Q v))
     ⊢ wp_expr E (UnOp op e) Q.
 Proof.
 
