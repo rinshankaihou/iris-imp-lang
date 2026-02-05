@@ -22,6 +22,7 @@ src/implang_cont.v
 src/imp_cont_notation.v
 src/state_interp.v
 src/lifting_expr.v
+src/lifting_cont.v
 src/lifting.v
 
 src/examples/swap.v
