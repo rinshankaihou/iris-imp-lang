@@ -20,6 +20,7 @@ src/imp_notation.v
 src/stack_ra.v
 src/implang_cont.v
 src/imp_cont_notation.v
+src/state_interp.v
 src/lifting_expr.v
 src/lifting.v
 

@@ -55,8 +55,6 @@ Definition guarded E Q k R :=
 
 Definition wp E s Q := (∀ k R, guarded E Q k R -∗ wp_sk E s k R)%I.
 
-Print stmt.
-
 Lemma wp_skip E Q : Qnormal Q ⊢ wp E skip Q.
 Proof.
   iIntros "H %% Hguard"; by iApply "Hguard".
@@ -93,10 +91,50 @@ Proof.
   iApply fupd_mask_intro; first set_solver; iIntros "Hclose" (?) "Hstack".
   iDestruct (var_e with "[$Hx $S $Hstack]") as %?.
   iDestruct ("He" with "[Hstack]") as %?; first by iApply stack_env_match.
-  iExists skip, (<[x := v]>r), σ, k; iSplit.
+  iExists _, _, _, _; iSplit.
   { iPureIntro; by constructor. }
   iNext.
   iMod (var_update with "[$Hx $S $Hstack]") as (?) "(Hx & $ & $)".
+  iMod "Hclose"; iModIntro.
+  by iApply "Hguard"; iApply "Hpost".
+Qed.
+
+Lemma wp_alloc E x Q : (∃ v0, points_to_var x v0) ∗
+  (∀ l, points_to_var x (LocV l) -∗ l ↦ NumV 0 -∗ Qnormal Q) ⊢ wp E (Salloc x) Q.
+Proof.
+  iIntros "H %% Hguard".
+  rewrite wp_sk_unfold /wp_sk_pre; iRight.
+  iIntros (??) "S".
+  iDestruct "H" as "((% & Hx) & Hpost)".
+  iApply fupd_mask_intro; first set_solver; iIntros "Hclose" (?) "Hstack".
+  iDestruct (var_e with "[$Hx $S $Hstack]") as %?.
+  iExists _, _, _, _; iSplit.
+  { iPureIntro; by apply alloc_fresh. }
+  iNext.
+  iMod (var_update with "[$Hx $S $Hstack]") as (?) "(Hx & S & $)".
+  iMod (state_interp_alloc with "S") as "($ & ?)".
+  { apply not_elem_of_dom, fresh_locs_fresh. }
+  iMod "Hclose"; iModIntro.
+  by iApply "Hguard"; iApply ("Hpost" with "[$]").
+Qed.
+
+Lemma wp_store E e1 e2 Q : wp_expr E e2 (λ v, wp_expr E e1 (λ v1, ∃ l v0, ⌜v1 = LocV l⌝ ∧
+  l ↦ v0 ∗ (l ↦ v -∗ Qnormal Q))) ⊢ wp E (Sstore e1 e2) Q.
+Proof.
+  iIntros "H %% Hguard".
+  rewrite wp_sk_unfold /wp_sk_pre; iRight.
+  iIntros (??) "S".
+  rewrite /wp_expr.
+  iMod ("H" with "S") as (?) "(He2 & S & H)".
+  iMod ("H" with "S") as (?) "(He1 & S & % & % & -> & Hl & Hpost)".
+  iApply fupd_mask_intro; first set_solver; iIntros "Hclose" (?) "Hstack".
+  iDestruct (state_interp_load with "S Hl") as %?.
+  iDestruct ("He1" with "[Hstack]") as %?; first by iApply stack_env_match.
+  iDestruct ("He2" with "[Hstack]") as %?; first by iApply stack_env_match.
+  iExists _, _, _, _; iSplit.
+  { iPureIntro; by econstructor. }
+  iNext.
+  iMod (state_interp_store with "S Hl") as "($ & ?)"; iFrame.
   iMod "Hclose"; iModIntro.
   by iApply "Hguard"; iApply "Hpost".
 Qed.

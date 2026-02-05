@@ -1,7 +1,6 @@
-(* wp for implang *)
-From iris.base_logic Require Import gen_heap.
 From iris.base_logic.lib Require Export fancy_updates.
-From iris_simp_lang Require Import stack_ra implang_expr.
+From iris_simp_lang Require Import implang_expr.
+From iris_simp_lang Require Export state_interp.
 
 Section wp_expr.
 
@@ -34,8 +33,6 @@ Proof.
   split => n; rewrite /stack_level; monPred.unseal; simpl.
   iIntros; iPureIntro; congruence.
 Qed.
-
-Definition state_interp σ ρ : assert := (⎡gen_heap_interp σ⎤ ∗ ⎡env_auth ρ⎤)%I.
 
 Definition env_match ρ r := assert_of (λ n, ⌜ρ !! n = Some r⌝)%I.
 
