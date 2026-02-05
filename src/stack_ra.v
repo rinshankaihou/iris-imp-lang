@@ -218,49 +218,40 @@ Qed.
 
 (* going up/down 1 stack frame *)
 Definition up1 (P : assert) : assert := assert_of (λ n, P (S n)).
-Definition down1 (P : assert) : assert := assert_of (λ n, match n with | S n' => P n' | O => False%I end).
+Definition down1 (P : assert) : assert := assert_of (λ n, P (pred n)).
 
 Global Instance up1_nonexpansive : NonExpansive up1.
 Proof. split => ? /=. apply H. Qed.
 
 Global Instance down1_nonexpansive : NonExpansive down1.
-Proof. split => l /=.
-  destruct l; first done. apply H. Qed.
+Proof. split => l /=. apply H. Qed.
 
 Global Instance up1_proper : Proper (equiv ==> equiv) up1.
 Proof. split => ? /=. apply H. Qed.
 
 Global Instance down1_proper : Proper (equiv ==> equiv) down1.
-Proof. split => l /=.
-  destruct l; first done. apply H. Qed.
+Proof. split => l /=. apply H. Qed.
 
 Lemma up1_mono : forall P Q, (P ⊢ Q) -> up1 P ⊢ up1 Q.
 Proof. split => n; apply H. Qed.
 
 Lemma down1_mono : forall P Q, (P ⊢ Q) -> down1 P ⊢ down1 Q.
-Proof. split => n /=. destruct n; first done. apply H. Qed.
+Proof. split => n; apply H. Qed.
 
-Lemma up1_plain : forall P, Plain P -> Absorbing P -> up1 P ⊣⊢ P.
-Proof.
-  intros.
-  rewrite -(plain_plainly P).
-  split => n /=; rewrite !monPred_at_plainly //.
-Qed.
-
-
-Lemma up1_intro : forall P,
-  Objective P -> P ⊢ up1 P.
+Lemma up1_objective : forall P,
+  Objective P -> P ⊣⊢ up1 P.
 Proof.
   intros. split => n.
-  rewrite /up1 H //=.
+  rewrite /up1 /=.
+  iSplit; iApply objective_at.
 Qed.
 
-Lemma down1_elim : forall P,
-  Objective P -> down1 P ⊢ P.
+Lemma down1_objective : forall P,
+  Objective P -> P ⊣⊢ down1 P.
 Proof.
   intros. split => n.
-  destruct n; rewrite /down1 //=.
-  apply bi.False_elim.
+  rewrite /down1 /=.
+  iSplit; iApply objective_at.
 Qed.
 
 Lemma up1_down1 : forall P,

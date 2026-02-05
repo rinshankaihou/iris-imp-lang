@@ -47,12 +47,13 @@ Notation "s1 ;; s2" := (Sseq s1%S s2%S)
   format "'[' '[hv' '[' s1 ']' ;;  ']' '/' s2 ']'",
   right associativity) : stmt_scope.
 
-Notation "'fn' x <{ s }> " := (Func [x%binder] s%S)
-  (at level 200, x at level 1, s at level 200,
-  format "'fn'  x  <{ '/  ' s '/' }> ") : func_scope.
-Notation "'fn' x y .. z <{ s }> " := (Func (cons x%binder (cons y%binder .. (cons z%binder nil) ..)) s%S)
-  (at level 200, x,y,z at level 1, s at level 200,
-  format "'fn'  x  y  ..  z  <{  '/  ' s '/' }> ") : func_scope.
+Notation "'fn' x <{ ( a ) s }> " := (Func [x%binder] [a%binder] s%S)
+  (at level 200, x,a at level 1, s at level 200,
+  format "'fn'  x  <{ ( a ) '/  ' s '/' }> ") : func_scope.
+Notation "'fn' x y .. z <{ ( a b .. c ) s }> " := (Func (cons x%binder (cons y%binder .. (cons z%binder nil) ..))
+  (cons a%binder (cons b%binder .. (cons c%binder nil) ..)) s%S)
+  (at level 200, x,y,z,a,b,c at level 1, s at level 200,
+  format "'fn'  x  y  ..  z  <{ ( a  b  ..  c ) '/  ' s '/' }> ") : func_scope.
 
 Section NotationExample.
 
@@ -68,7 +69,7 @@ Section NotationExample.
         }> )%S.
 
     Example fun_ex := 
-        fn "x" "y" <{
+        fn "x" "y" <{ ( "a" "c" "d" )
             "x" <- #1 ;;
             Alloc "a" ;;
             If "y" <{ skip }> <{ skip }> ;;

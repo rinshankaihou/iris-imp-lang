@@ -37,8 +37,14 @@ Qed.
 Definition env_match ρ r := assert_of (λ n, ⌜ρ !! n = Some r⌝)%I.
 
 Definition wp_expr E e Q : assert :=
-  (∀ σ ρ, state_interp σ ρ ={E}=∗
+  (∀ σ ρ, ⎡state_interp σ ρ⎤ ={E}=∗
      ∃ v, (∀ r, env_match ρ r -∗ ⌜eval_expr e r σ v⌝) ∗
-          state_interp σ ρ ∗ Q v)%I.
+          ⎡state_interp σ ρ⎤ ∗ Q v)%I.
 
+Fixpoint wp_exprs E es Q : assert :=
+  match es with
+  | [] => Q []
+  | e :: rest => wp_expr E e (λ v, wp_exprs E rest (λ vs, Q (v :: vs)))
+  end.
+  
 End wp_expr.

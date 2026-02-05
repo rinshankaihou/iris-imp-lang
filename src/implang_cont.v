@@ -26,7 +26,7 @@ Inductive stmt :=
 .
 
 Inductive func :=
-  | Func (func_params : list string) (func_body : stmt).
+  | Func (func_params : list string) (func_locals : list string) (func_body : stmt).
 
 Bind Scope stmt_scope with stmt.
 Bind Scope func_scope with func.
@@ -137,11 +137,11 @@ Inductive step : func_env -> stmt → state → stmt → state → Prop :=
   | ContinueS F σ e s k' :
     find_loop σ.(k) = Some (Kwhile e s k') →
     step F Scontinue σ Sskip (σ <| k := Kwhile e s k' |>)
-  | CallS F f es σ ps s vs rv :
-    F !! f = Some (Func ps s) →
+  | CallS F f es σ ps ls s vs rv :
+    F !! f = Some (Func ps ls s) →
     length ps = length es →
     eval_exprs' es σ vs →
-    let ρ' := bind_vars σ.(ρ) ps vs in
+    let ρ' := bind_vars σ.(ρ) (ps ++ ls) (vs ++ repeat (NumV 0) (length ls)) in
     let k' := Kcall rv σ.(ρ) σ.(k) in
     step F (Scall rv f es) σ s 
                 (σ <| ρ := ρ' |> <| k:=k' |>)

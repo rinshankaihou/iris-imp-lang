@@ -15,18 +15,20 @@ Fixpoint make_stack (k : stack) : env_state * nat :=
   | (r, _) :: k' => let '(ρ, n) := make_stack k' in (<[n := r]>ρ, S n)
   end.
 
-Definition stack_match ρ r k := assert_of (λ n, ⌜let '(ρ0, n0) := make_stack k in n = n0 ∧ ρ = <[n := r]>ρ0⌝)%I.
+Definition stack_depth k := snd (make_stack k).
+
+Definition stack_match ρ r k := let '(ρ0, n) := make_stack k in (stack_level n ∗ ⌜ρ = <[n := r]>ρ0⌝)%I.
 
 Definition wp_pre (wp : coPset -d> stmt -d> assert -d> assert) :
     coPset -d> stmt -d> assert -d> assert := λ E s Q,
- (∀ σ ρ, state_interp σ ρ ={E,∅}=∗ ∀ r k, stack_match ρ r k -∗ ∃ s' r' σ' k',
+ (∀ σ ρ, ⎡state_interp σ ρ⎤ ={E,∅}=∗ ∀ r k, stack_match ρ r k -∗ ∃ s' r' σ' k',
         ⌜step F s (Build_state r σ k) s' (Build_state r' σ' k')⌝ ∗
-        ▷ |={∅,E}=> ∃ ρ', state_interp σ' ρ' ∗ stack_match ρ' r' k' ∗ wp E s' Q)%I.
+        ▷ |={∅,E}=> ∃ ρ', ⎡state_interp σ' ρ' ∗ (stack_match ρ' r' k' ∗ wp E s' Q) (stack_depth k')⎤)%I.
 
 Local Instance wp_contractive : Contractive (wp_pre).
 Proof.
   rewrite /wp_pre /= => n wp wp' Hwp E s Q.
-  do 26 (f_contractive || f_equiv). apply Hwp.
+  do 28 (f_contractive || f_equiv). apply Hwp.
 Qed.
 
 Local Definition wp_def := fixpoint wp_pre.
