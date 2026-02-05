@@ -273,9 +273,11 @@ End env.
 
 End val.
 
-Notation "⇓ P" := (down1 P) (at level 20) : bi_scope.
-Notation "⇑ P" := (up1 P) (at level 20): bi_scope.
-
 Arguments envGS : clear implicits.
 Global Instance: Params (@points_to_var) 3 := {}.
 Global Opaque points_to_var.
+
+Notation "⇓ P" := (down1 P) (at level 20) : bi_scope.
+Notation "⇑ P" := (up1 P) (at level 20): bi_scope.
+Notation "l ↦v v" := (points_to_var l v)
+  (at level 20, format "l  ↦v  v") : bi_scope.
