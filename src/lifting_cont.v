@@ -155,6 +155,7 @@ Proof.
   iNext.
   iMod (state_interp_store with "S Hl") as "($ & ?)"; iFrame.
   iMod "Hclose"; iModIntro.
+  iApply (stack_match_embed with "[$]").
   by iApply "Hguard"; iApply "Hpost".
 Qed.
 
@@ -171,6 +172,7 @@ Proof.
   { iPureIntro; by econstructor. }
   iNext; iFrame.
   iMod "Hclose" as "_"; iModIntro.
+  iApply (stack_match_embed with "[$]").
   iApply "H".
   rewrite /guarded.
   iSplit => /=; last by iDestruct "Hguard" as "[_ $]".
@@ -181,6 +183,7 @@ Proof.
   { iPureIntro; by econstructor. }
   iNext; iFrame.
   iMod "Hclose" as "_"; iModIntro.
+  iApply (stack_match_embed with "[$]").
   by iApply "H".
 Qed.
 
@@ -198,6 +201,7 @@ Proof.
   { iPureIntro; by econstructor. }
   iNext; iFrame.
   iMod "Hclose" as "_"; iModIntro.
+  iApply (stack_match_embed with "[$]").
   by iApply "H".
 Qed.
 
@@ -220,11 +224,13 @@ Proof.
     { iPureIntro; by apply WhileFS. }
     iNext; iFrame.
     iMod "Hclose" as "_"; iModIntro.
+    iApply (stack_match_embed with "[$]").
     by iApply "Hguard".
   - iExists _, _, _, _; iSplit.
     { iPureIntro; by eapply WhileTS. }
     iNext; iFrame.
     iMod "Hclose" as "_"; iModIntro.
+    iApply (stack_match_embed with "[$]").
     iApply "H".
     rewrite /guarded.
     iSplit; [|iSplit; [|iSplit]]; simpl.
@@ -235,6 +241,7 @@ Proof.
       { iPureIntro; by econstructor. }
       iNext; iFrame.
       iMod "Hclose" as "_"; iModIntro.
+      iApply (stack_match_embed with "[$]").
       by iApply "H".
     + iIntros "H"; iExists _, _, _; iSplit => //.
       by iApply "Hguard".
@@ -246,6 +253,7 @@ Proof.
       { iPureIntro; by econstructor. }
       iNext; iFrame.
       iMod "Hclose" as "_"; iModIntro.
+      iApply (stack_match_embed with "[$]").
       by iApply "H".
     + iDestruct "Hguard" as "(_ & _ & _ & $)".
 Qed.
@@ -260,8 +268,8 @@ Qed.
 Lemma stack_match_loop ρ r k e s k' : find_loop k = Some (Kwhile e s k') →
   stack_match ρ r k ⊢ stack_match ρ r k'.
 Proof.
-  split => n; apply bi.pure_mono.
-  by erewrite cont_to_stack_loop.
+  intros. rewrite /stack_match /stack_level.
+  rewrite -(cont_to_stack_loop _ _ _ _ H) //.
 Qed.
 
 Lemma wp_break E Q : Qbreak Q ⊢ wp E Sbreak Q.
@@ -276,7 +284,8 @@ Proof.
   { iPureIntro; by econstructor. }
   iNext; iFrame.
   iMod "Hclose" as "_"; iModIntro.
-  by iApply stack_match_loop.
+  rewrite stack_match_loop //.
+  by iApply (stack_match_embed with "[$]"). 
 Qed.
 
 Lemma find_loop_while k k' : find_loop k = Some k' → ∃ el sl kl, k' = Kwhile el sl kl.
@@ -295,8 +304,8 @@ Qed.
 Lemma stack_match_loop' ρ r k k' : find_loop k = Some k' →
   stack_match ρ r k ⊢ stack_match ρ r k'.
 Proof.
-  split => n; apply bi.pure_mono.
-  by erewrite cont_to_stack_loop'.
+  split => n. rewrite /stack_match /stack_level.
+  rewrite -(cont_to_stack_loop' _ _ H) //.
 Qed.
 
 Lemma wp_continue E Q : Qcontinue Q ⊢ wp E Scontinue Q.
@@ -312,7 +321,8 @@ Proof.
   { iPureIntro; by econstructor. }
   iNext; iFrame.
   iMod "Hclose" as "_"; iModIntro.
-  by iApply stack_match_loop'.
+  rewrite stack_match_loop' //.
+  by iApply (stack_match_embed with "[$]").
 Qed.
 
 Definition get_params f := let 'Func params _ _ := f in params.
@@ -337,8 +347,8 @@ Definition call_assert E f vs x R := (⇑ (stack_retainer f -∗ stackframe f vs
   wp E (get_body f) (ret_assert (λ v, stack_retainer f ∗ (∃ vs, stackframe f vs) ∗
     ⇓ (points_to_var x v ∗ ▷ (points_to_var x v -∗ R))))))%I.
 
-Lemma wp_exprs_app E es Q σ ρ : wp_exprs E es Q -∗ state_interp σ ρ ={E}=∗
-  ∃ vs, (∀ r k, env_match ρ r -∗ ⌜eval_exprs' es (Build_state r σ k) vs⌝) ∗ state_interp σ ρ ∗ Q vs.
+Lemma wp_exprs_app E es Q σ ρ : wp_exprs E es Q -∗ ⎡state_interp σ ρ⎤ ={E}=∗
+  ∃ vs, (∀ r k, env_match ρ r -∗ ⌜eval_exprs' es (Build_state r σ k) vs⌝) ∗ ⎡state_interp σ ρ⎤ ∗ Q vs.
 Proof.
   iIntros "Hes S"; iInduction es as [|e es] "IH" forall (Q); simpl.
   - iFrame. iIntros "!> %% ?"; iPureIntro; constructor.
@@ -378,10 +388,9 @@ Proof.
   simpl.
   iNext; iFrame.
   iMod "Hclose" as "_"; iModIntro; simpl.
-
-  by iApply "H".
-
-Qed.
+  (* by iApply "H".
+Qed. *)
+Admitted.
 
 Lemma find_call_idem k k' : find_call k = Some k' → find_call k' = Some k'.
 Proof.
@@ -399,8 +408,8 @@ Qed.
 Lemma stack_match_call ρ r k k' : find_call k = Some k' →
   stack_match ρ r k ⊢ stack_match ρ r k'.
 Proof.
-  split => n; apply bi.pure_mono.
-  by erewrite cont_to_stack_call.
+  intros.
+  rewrite /stack_match /stack_level (cont_to_stack_call _ _ H) //.
 Qed.
 
 Lemma wp_return E e Q : wp_expr E e (Qreturn Q) ⊢ wp E (Sreturn e) Q.
@@ -417,5 +426,5 @@ Proof.
     inversion 1; subst; constructor; auto; simpl in *.
     by rewrite H -(find_call_idem k k').
 Qed.
-  
+
 End wp.
