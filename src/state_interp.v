@@ -28,4 +28,16 @@ Proof.
   by iIntros "(? & $) ?"; iMod (gen_heap_update with "[$] [$]") as "($ & $)".
 Qed.
 
+Lemma state_interp_alloc_frame : forall σ ρ n r, ρ !! n = None →
+  (⎡state_interp σ ρ⎤ : assert) ⊢ |==> ⎡state_interp σ (<[n := r]> ρ)⎤ ∗ ⎡stack_frag n (/ pos_to_Qp (Pos.of_nat (1 + size r)))%Qp 1%Qp r⎤.
+Proof.
+  by intros; iIntros "($ & ?)"; iMod (env_alloc with "[$]") as "($ & $)".
+Qed.
+
+Lemma state_interp_dealloc_frame : forall σ ρ n q r,
+  (⎡state_interp σ ρ⎤ : assert) ∗ ⎡stack_frag n q 1%Qp r⎤⊢ |==> ⎡state_interp σ (delete n ρ)⎤.
+Proof.
+  by intros; iIntros "(($ & ?) & ?)"; iMod (env_dealloc with "[$]") as "$".
+Qed.
+
 End state_interp.

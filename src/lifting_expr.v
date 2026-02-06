@@ -8,6 +8,7 @@ Context `{!gen_heapGS loc val Σ} `{!envGS val Σ} `{!invGS_gen HasNoLc Σ}.
 
 Implicit Types (ρ : @env_state val) (σ : gmap loc val).
 
+(* to stack_ra *)
 Definition stack_level (n : nat) : assert := monPred_in(I := stack_index) n.
 
 Lemma stack_level_intro : ⊢ ∃ n, stack_level n.
@@ -32,6 +33,18 @@ Lemma stack_level_eq : forall a b, ⊢ stack_level a -∗ stack_level b -∗ ⌜
 Proof.
   split => n; rewrite /stack_level; monPred.unseal; simpl.
   iIntros; iPureIntro; congruence.
+Qed.
+
+Lemma stack_level_up : forall n, stack_level n ⊢ up1 (stack_level (S n)).
+Proof.
+  split => ?; rewrite /stack_level; monPred.unseal.
+  by apply bi.pure_mono; intros ->.
+Qed.
+
+Lemma stack_level_down : forall n, stack_level (S n) ⊢ down1 (stack_level n).
+Proof.
+  split => ?; rewrite /stack_level; monPred.unseal.
+  by apply bi.pure_mono; intros <-.
 Qed.
 
 Definition env_match ρ r := assert_of (λ n, ⌜ρ !! n = Some r⌝)%I.

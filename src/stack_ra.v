@@ -238,26 +238,126 @@ Proof. split => n; apply H. Qed.
 Lemma down1_mono : forall P Q, (P ⊢ Q) -> down1 P ⊢ down1 Q.
 Proof. split => n; apply H. Qed.
 
-Lemma up1_objective : forall P,
-  Objective P -> P ⊣⊢ up1 P.
+Lemma up1_objective : forall P `{!Objective P}, P ⊣⊢ up1 P.
 Proof.
   intros. split => n.
   rewrite /up1 /=.
   iSplit; iApply objective_at.
 Qed.
 
-Lemma down1_objective : forall P,
-  Objective P -> P ⊣⊢ down1 P.
+Lemma up1_obj_elim : forall P `{!Objective P}, up1 P ⊢ P.
+Proof. intros; by rewrite -up1_objective. Qed.
+
+Lemma down1_objective : forall P `{!Objective P}, P ⊣⊢ down1 P.
 Proof.
   intros. split => n.
   rewrite /down1 /=.
   iSplit; iApply objective_at.
 Qed.
 
-Lemma up1_down1 : forall P,
-  up1 (down1 P) ⊣⊢ P.
+Lemma down1_obj_elim : forall P `{!Objective P}, down1 P ⊢ P.
+Proof. intros; by rewrite -down1_objective. Qed.
+
+Lemma up1_down1 : forall P, up1 (down1 P) ⊣⊢ P.
 Proof.
   intros. split => n. done.
+Qed.
+
+(* TODO: make IPM modality instances *)
+Lemma up1_sep : forall P Q, up1 P ∗ up1 Q ⊣⊢ up1 (P ∗ Q).
+Proof.
+  intros. split => n.
+  by rewrite /up1; monPred.unseal.
+Qed.
+
+Lemma down1_sep : forall P Q, down1 P ∗ down1 Q ⊣⊢ down1 (P ∗ Q).
+Proof.
+  intros. split => n.
+  by rewrite /down1; monPred.unseal.
+Qed.
+
+Lemma up1_and : forall P Q, up1 P ∧ up1 Q ⊣⊢ up1 (P ∧ Q).
+Proof.
+  intros. split => n.
+  by rewrite /up1; monPred.unseal.
+Qed.
+
+Lemma down1_and : forall P Q, down1 P ∧ down1 Q ⊣⊢ down1 (P ∧ Q).
+Proof.
+  intros. split => n.
+  by rewrite /down1; monPred.unseal.
+Qed.
+
+Lemma up1_forall : forall {A} P, up1 (∀ x : A, P x) ⊣⊢ ∀ x, up1 (P x).
+Proof.
+  intros. split => n.
+  by rewrite /up1; monPred.unseal.
+Qed.
+
+Lemma down1_forall : forall {A} P, down1 (∀ x : A, P x) ⊣⊢ ∀ x, down1 (P x).
+Proof.
+  intros. split => n.
+  by rewrite /down1; monPred.unseal.
+Qed.
+
+Lemma up1_exist : forall {A} P, up1 (∃ x : A, P x) ⊣⊢ ∃ x, up1 (P x).
+Proof.
+  intros. split => n.
+  by rewrite /up1; monPred.unseal.
+Qed.
+
+Lemma down1_exist : forall {A} P, down1 (∃ x : A, P x) ⊣⊢ ∃ x, down1 (P x).
+Proof.
+  intros. split => n.
+  by rewrite /down1; monPred.unseal.
+Qed.
+
+Lemma up1_wand : forall P Q, up1 (P -∗ Q) ⊣⊢ (up1 P -∗ up1 Q).
+Proof.
+  intros. split => n.
+  rewrite /up1; monPred.unseal.
+  iSplit; iIntros "H" (? <-); by iApply "H".
+Qed.
+
+Lemma down1_wand : forall P Q, down1 (P -∗ Q) ⊣⊢ (down1 P -∗ down1 Q).
+Proof.
+  intros. split => n.
+  rewrite /down1; monPred.unseal.
+  iSplit; iIntros "H" (? <-); by iApply "H".
+Qed.
+
+Global Instance up1_persistent P `{!Persistent P} : Persistent (up1 P).
+Proof.
+  by apply monPred_persistent; intros; simpl; apply monPred_at_persistent.
+Qed.
+
+Global Instance down1_persistent P `{!Persistent P} : Persistent (down1 P).
+Proof.
+  by apply monPred_persistent; intros; simpl; apply monPred_at_persistent.
+Qed.
+
+Lemma up1_later : forall P, up1 (▷ P) ⊣⊢ ▷ (up1 P).
+Proof.
+  intros. split => n.
+  by rewrite /up1; monPred.unseal.
+Qed.
+
+Lemma down1_later : forall P, down1 (▷ P) ⊣⊢ ▷ (down1 P).
+Proof.
+  intros. split => n.
+  by rewrite /down1; monPred.unseal.
+Qed.
+
+Lemma up1_bupd : forall P, up1 (|==> P) ⊣⊢ |==> (up1 P).
+Proof.
+  intros. split => n.
+  by rewrite /up1; monPred.unseal.
+Qed.
+
+Lemma down1_bupd : forall P, down1 (|==> P) ⊣⊢ |==> (down1 P).
+Proof.
+  intros. split => n.
+  by rewrite /down1; monPred.unseal.
 Qed.
 
 End env.
