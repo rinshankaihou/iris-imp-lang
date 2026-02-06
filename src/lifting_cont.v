@@ -16,41 +16,46 @@ Fixpoint cont_to_stack k : env_state * nat :=
 
 Definition stack_depth k := snd (cont_to_stack k).
 
-Definition stack_match ρ r k := let '(ρ0, n) := cont_to_stack k in ρ = <[n := r]>ρ0.
+Definition stack_match ρ r k := let '(ρ0, n) := cont_to_stack k in (stack_level n ∗ ⌜ρ = <[n := r]>ρ0⌝)%I.
 
-Lemma stack_env_match ρ r k : stack_match ρ r k →
-  stack_level (stack_depth k) ⊢ env_match ρ r.
+Lemma stack_env_match ρ r k : stack_match ρ r k ⊢ env_match ρ r.
 Proof.
-  rewrite /stack_level; split => n; monPred.unseal.
-  apply bi.pure_mono; intros <-.
-  unfold stack_match, stack_depth in *.
-  destruct (cont_to_stack k); subst; simpl.
+  unfold stack_match.
+  destruct (cont_to_stack k) eqn: Hk.
+  unfold stack_level; split => ?; monPred.unseal.
+  iIntros "(<- & ->)"; iPureIntro.
   by rewrite lookup_insert.
 Qed.
 
-Definition wp_sk_pre (wp : coPset -d> stmt -d> cont -d> iPropO Σ -d> iPropO Σ) :
-    coPset -d> stmt -d> cont -d> iPropO Σ -d> iPropO Σ := λ E s k Q,
+Lemma stack_match_embed ρ r k (P : assert) : stack_match ρ r k -∗ P -∗
+  ⎡(stack_match ρ r k ∗ P) (stack_depth k)⎤.
+Proof.
+  unfold stack_match, stack_depth.
+  destruct (cont_to_stack k).
+  iIntros "(#? & %) P"; iApply stack_level_embed; by iFrame "# ∗".
+Qed.
+
+Definition wp_sk_pre (wp : coPset -d> stmt -d> cont -d> assert -d> assert) :
+    coPset -d> stmt -d> cont -d> assert -d> assert := λ E s k Q,
  ((⌜s = Sskip ∧ k = Kstop⌝ ∗ |={E}=> Q) ∨
-  ∀ σ ρ, state_interp σ ρ ={E,∅}=∗ ∀ r, ⌜stack_match ρ r k⌝ -∗ ∃ s' r' σ' k',
+  ∀ σ ρ, ⎡state_interp σ ρ⎤ ={E,∅}=∗ ∀ r, stack_match ρ r k -∗ ∃ s' r' σ' k',
         ⌜step F s (Build_state r σ k) s' (Build_state r' σ' k')⌝ ∗
-        ▷ |={∅,E}=> ∃ ρ', state_interp σ' ρ' ∗ ⌜stack_match ρ' r' k'⌝ ∗ wp E s' k' Q)%I.
+        ▷ |={∅,E}=> ∃ ρ', ⎡state_interp σ' ρ' ∗ (stack_match ρ' r' k' ∗ wp E s' k' Q) (stack_depth k')⎤)%I.
 
 Local Instance wp_sk_pre_contractive : Contractive (wp_sk_pre).
 Proof.
   rewrite /wp_sk_pre /= => n wp wp' Hwp E s k Q.
-  do 25 (f_contractive || f_equiv); apply Hwp.
+  do 27 (f_contractive || f_equiv); apply Hwp.
 Qed.
 
 Local Definition wp_sk_def := fixpoint wp_sk_pre.
 Local Definition wp_sk_aux : seal (@wp_sk_def). Proof. by eexists. Qed.
-Definition wp_sk' := wp_sk_aux.(unseal).
-Local Lemma wp_sk_unseal   : wp_sk' = @wp_sk_def.
+Definition wp_sk := wp_sk_aux.(unseal).
+Local Lemma wp_sk_unseal   : wp_sk = @wp_sk_def.
 Proof. rewrite -wp_sk_aux.(seal_eq) //. Qed.
 
-Lemma wp_sk_unfold E s k Q : wp_sk' E s k Q ⊣⊢ wp_sk_pre wp_sk' E s k Q.
+Lemma wp_sk_unfold E s k Q : wp_sk E s k Q ⊣⊢ wp_sk_pre wp_sk E s k Q.
 Proof. rewrite wp_sk_unseal. apply (fixpoint_unfold wp_sk_pre). Qed.
-
-Definition wp_sk E s k Q : assert := (stack_level (stack_depth k) -∗ ⎡wp_sk' E s k Q⎤)%I.
 
 Record postassert :=
   { Qnormal : assert; Qbreak : assert; Qcontinue : assert; Qreturn : val → assert }.
@@ -68,51 +73,48 @@ Proof.
   iIntros "H %% Hguard"; by iApply "Hguard".
 Qed.
 
-Lemma var_e : forall x v σ ρ r k, stack_match ρ r k →
-  stack_level (stack_depth k) ∗ points_to_var x v ∗ ⎡state_interp σ ρ⎤ ⊢ ⌜r !! x = Some v⌝.
+Lemma var_e : forall x v σ ρ r k,
+  stack_match ρ r k ∗ points_to_var x v ∗ ⎡state_interp σ ρ⎤ ⊢ ⌜r !! x = Some v⌝.
 Proof.
-  intros; rewrite /stack_level; split => n; monPred.unseal.
-  iIntros "(<- & Hx & (_ & Hρ))".
+  intros; rewrite /stack_match /stack_level.
+  destruct (cont_to_stack k) eqn: Hk.
+  split => ?; monPred.unseal.
+  iIntros "((<- & ->) & Hx & (_ & Hρ))".
   iDestruct (var_e with "[$Hx $Hρ]") as %Hr.
-  unfold stack_match, stack_depth in *.
-  destruct (cont_to_stack k) eqn: Hk; subst.
   by rewrite /env_to_environ lookup_insert in Hr.
 Qed.
 
-Lemma var_update : forall x v v' σ ρ r k, stack_match ρ r k →
-  stack_level (stack_depth k) ∗ points_to_var x v ∗ ⎡state_interp σ ρ⎤ ⊢
-  |==> ∃ ρ', ⌜stack_match ρ' (<[x := v']>r) k⌝ ∧ points_to_var x v' ∗ ⎡state_interp σ ρ'⎤.
+Lemma var_update : forall x v v' σ ρ r k,
+  stack_match ρ r k ∗ points_to_var x v ∗ ⎡state_interp σ ρ⎤ ⊢
+  |==> ∃ ρ', stack_match ρ' (<[x := v']>r) k ∗ points_to_var x v' ∗ ⎡state_interp σ ρ'⎤.
 Proof.
-  intros; rewrite /stack_level; split => n; monPred.unseal.
-  iIntros "(%Hl & Hx & ($ & Hρ))"; hnf in Hl; subst.
+  intros; rewrite /stack_match /stack_level.
+  destruct (cont_to_stack k) eqn: Hk.
+  split => ?; monPred.unseal.
+  iIntros "((%Hl & ->) & Hx & ($ & Hρ))"; hnf in Hl; subst.
   iMod (var_update with "[$Hx $Hρ]") as "($ & $)".
   iPureIntro.
-  unfold stack_match, stack_depth in *.
-  destruct (cont_to_stack k) eqn: Hk; subst.
   rewrite /set_var lookup_insert insert_insert //.
 Qed.
 
 Lemma wp_assign E x e Q : wp_expr E e (λ v, (∃ v0, points_to_var x v0) ∗
   ▷ (points_to_var x v -∗ Qnormal Q)) ⊢ wp E (Sassign x e) Q.
 Proof.
-  iIntros "H %% Hguard #Hl".
+  iIntros "H %% Hguard".
   rewrite wp_sk_unfold /wp_sk_pre; iRight.
   iIntros (??) "S".
   rewrite /wp_expr.
   iMod ("H" with "S") as (?) "(He & S & (% & Hx) & Hpost)".
-  rewrite embed_fupd.
-  iApply fupd_mask_intro; first set_solver; iIntros "Hclose" (? Hstack).
-  iDestruct (var_e with "[$Hl $Hx $S]") as %?; first done.
-  iDestruct ("He" with "[Hl]") as %?; first by iApply stack_env_match.
+  iApply fupd_mask_intro; first set_solver; iIntros "Hclose" (?) "Hstack".
+  iDestruct (var_e with "[$Hstack $Hx $S]") as %?.
+  iDestruct ("He" with "[Hstack]") as %?; first by iApply stack_env_match.
   iExists _, _, _, _; iSplit.
   { iPureIntro; by constructor. }
-  iNext.
-  rewrite embed_fupd.
-  iMod (var_update with "[$Hl $Hx $S]") as (??) "(Hx & $)"; first done.
+  iNext; simpl.
+  iMod (var_update with "[$Hstack $Hx $S]") as (?) "(? & Hx & $)".
   iMod "Hclose"; iModIntro.
-  iSplit; first done.
-  iDestruct "Hguard" as "(Hguard & _)"; iApply ("Hguard" with "[-] Hl").
-  by iApply "Hpost".
+  iApply (stack_match_embed with "[$]").
+  by iApply "Hguard"; iApply "Hpost".
 Qed.
 
 Lemma wp_alloc E x Q : (∃ v0, points_to_var x v0) ∗
@@ -126,11 +128,12 @@ Proof.
   iDestruct (var_e with "[$Hx $S $Hstack]") as %?.
   iExists _, _, _, _; iSplit.
   { iPureIntro; by apply alloc_fresh. }
-  iNext.
-  iMod (var_update with "[$Hx $S $Hstack]") as (?) "(Hx & S & $)".
+  iNext; simpl.
+  iMod (var_update with "[$Hx $S $Hstack]") as (?) "(? & Hx & S)".
   iMod (state_interp_alloc with "S") as "($ & ?)".
   { apply not_elem_of_dom, fresh_locs_fresh. }
   iMod "Hclose"; iModIntro.
+  iApply (stack_match_embed with "[$]").
   by iApply "Hguard"; iApply ("Hpost" with "[$]").
 Qed.
 
