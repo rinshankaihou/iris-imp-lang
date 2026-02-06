@@ -30,14 +30,15 @@ Qed.
 
 Definition wp_pre (wp : coPset -d> stmt -d> assert -d> assert) :
     coPset -d> stmt -d> assert -d> assert := λ E s Q,
- (∀ σ ρ, ⎡state_interp σ ρ⎤ ={E,∅}=∗ ∀ r k, stack_match ρ r k -∗ ∃ s' r' σ' k',
+  ((⌜s = skip⌝ ∧ |={E}=> Q) ∨
+   (∀ σ ρ, ⎡state_interp σ ρ⎤ ={E,∅}=∗ ∀ r k, stack_match ρ r k -∗ ∃ s' r' σ' k',
         ⌜step F s (Build_state r σ k) s' (Build_state r' σ' k')⌝ ∗
-        ▷ |={∅,E}=> ∃ ρ', ⎡state_interp σ' ρ' ∗ (stack_match ρ' r' k' ∗ wp E s' Q) (stack_depth k')⎤)%I.
+        ▷ |={∅,E}=> ∃ ρ', ⎡state_interp σ' ρ' ∗ (stack_match ρ' r' k' ∗ wp E s' Q) (stack_depth k')⎤))%I.
 
 Local Instance wp_contractive : Contractive (wp_pre).
 Proof.
   rewrite /wp_pre /= => n wp wp' Hwp E s Q.
-  do 28 (f_contractive || f_equiv). apply Hwp.
+  do 29 (f_contractive || f_equiv). apply Hwp.
 Qed.
 
 Local Definition wp_def := fixpoint wp_pre.
@@ -54,31 +55,42 @@ Proof.
   rewrite wp_unfold /wp_pre. iIntros. iLeft. iSplit; done.
 Qed.
 
-Lemma var_e : forall x v σ ρ r k, points_to_var x v ∗ state_interp σ ρ ∗ stack_match ρ r k ⊢ ⌜r !! x = Some v⌝.
+Lemma var_e : forall x v σ ρ r k,
+  stack_match ρ r k ∗ x ↦v v ∗ ⎡state_interp σ ρ⎤ ⊢ ⌜r !! x = Some v⌝.
 Proof.
-  intros; rewrite /state_interp; split => n; monPred.unseal.
-  iIntros "(Hx & (_ & Hρ) & %)".
-  iDestruct (var_e with "[$Hx $Hρ]") as %?.
+  intros; rewrite /stack_match /stack_level;
   destruct (make_stack k) eqn: Hk.
-  destruct H; subst.
-  by rewrite /env_to_environ lookup_insert in H0.
+  split => ?; monPred.unseal.
+  iIntros "((-> & ->) & Hx & (_ & Hρ))".
+  iDestruct (var_e with "[$Hx $Hρ]") as %?.
+  by rewrite /env_to_environ lookup_insert in H.
 Qed.
 
-Lemma var_update : forall x v v' σ ρ r k, points_to_var x v ∗ state_interp σ ρ ∗ stack_match ρ r k ⊢
-  |==> ∃ ρ', points_to_var x v' ∗ state_interp σ ρ' ∗ stack_match ρ' (<[x := v']>r) k.
+Lemma var_update : forall x v v' σ ρ r k,
+  stack_match ρ r k ∗ x ↦v v ∗ ⎡state_interp σ ρ⎤ ⊢
+  |==> ∃ ρ', stack_match ρ' (<[x := v']>r) k ∗ x ↦v v' ∗ ⎡state_interp σ ρ'⎤.
 Proof.
-  intros; rewrite /state_interp; split => n; monPred.unseal.
-  iIntros "(Hx & ($ & Hρ) & Hmatch)".
+  intros; rewrite /stack_match /stack_level;
+  destruct (make_stack k) eqn: Hk.
+  split => ?; monPred.unseal.
+  iIntros "((-> & ->) & Hx & ($ & Hρ))".
   iMod (var_update with "[$Hx $Hρ]") as "($ & $)".
-  iModIntro; iStopProof; apply bi.pure_mono.
-  destruct (make_stack k) eqn: Hk; intros (<- & ->).
-  rewrite /set_var lookup_insert insert_insert //.
+  iModIntro; iSplit; try done.
+  rewrite /set_var lookup_insert insert_insert H //.
 Qed.
 
-Lemma wp_assign E x e Q : wp_expr E e (λ v, (∃ v0, points_to_var x v0) ∗
-  ▷ (points_to_var x v -∗ Q)) ⊢ wp E (Sassign x e) Q.
+Lemma stack_match_embed ρ r k (P : assert) : stack_match ρ r k -∗ P -∗
+  ⎡(stack_match ρ r k ∗ P) (stack_depth k)⎤.
 Proof.
-  rewrite wp_unfold /wp_pre. iIntros "H". iRight.
+  unfold stack_match, stack_depth.
+  destruct (make_stack k).
+  iIntros "(#? & %) P"; iApply stack_level_embed; by iFrame "# ∗".
+Qed.
+
+Lemma wp_assign E x e Q : wp_expr E e (λ v, (∃ v0, x ↦v v0) ∗
+  ▷ (x ↦v v -∗ Q)) ⊢ wp E (Sassign x e) Q.
+Proof.
+  rewrite wp_unfold /wp_pre /stack_depth. iIntros "H". iRight.
   iIntros (??) "S".
   rewrite /wp_expr.
   iMod ("H" with "S") as (?) "(He & S & (% & Hx) & Hpost)".
@@ -88,12 +100,14 @@ Proof.
   iExists _, _, _, _; iSplit.
   { iPureIntro; by constructor. }
   iNext.
-  iMod (var_update with "[$Hx $S $Hstack]") as (?) "(Hx & $ & $)".
+  iMod (var_update with "[$Hx $S $Hstack]") as (?) "(match & ? & $)".
   iMod "Hclose"; iModIntro.
+  simpl.
+  iApply (stack_match_embed with "[$]").
   rewrite -wp_skip; by iApply "Hpost".
 Qed.
 
-Lemma wp_alloc E x Q : (∃ v0, points_to_var x v0) ∗
+Lemma wp_alloc E x Q : (∃ v0, x ↦v v0) ∗
   ▷ (∀ l, points_to_var x (LocV l) -∗ l ↦ NumV 0 -∗ Q) ⊢ wp E (Salloc x) Q.
 Proof.
   rewrite wp_unfold /wp_pre. iIntros "H". iRight.
@@ -104,10 +118,11 @@ Proof.
   iExists _, _, _, _; iSplit.
   { iPureIntro; by apply alloc_fresh. }
   iNext.
-  iMod (var_update with "[$Hx $S $Hstack]") as (?) "(Hx & S & $)".
-  iMod (state_interp_alloc with "S") as "($ & ?)".
+  iMod (var_update with "[$Hx $S $Hstack]") as (?) "(? & Hx & S)".
+  iMod (state_interp_alloc with "S") as "($ & S)".
   { apply not_elem_of_dom, fresh_locs_fresh. }
   iMod "Hclose"; iModIntro.
+  iApply (stack_match_embed with "[$]").
   rewrite -wp_skip. by iApply ("Hpost" with "[$]").
 Qed.
 
@@ -128,6 +143,7 @@ Proof.
   iNext.
   iMod (state_interp_store with "S Hl") as "($ & ?)"; iFrame.
   iMod "Hclose"; iModIntro.
+  iApply (stack_match_embed with "[$]").
   rewrite -wp_skip. by iApply "Hpost".
 Qed.
 
@@ -135,24 +151,24 @@ Lemma wp_seq E s1 s2 Q : wp E s1 (▷ wp E s2 Q) ⊢ wp E (Sseq s1 s2) Q.
 Proof.
   iIntros "H".
   iLöb as "IH" forall (s1 s2 Q).
-  rewrite wp_unfold [wp _ (s1;;s2)%S _]wp_unfold  /wp_pre. iRight.
+  rewrite wp_unfold [wp _ (s1;;s2)%S _]wp_unfold /wp_pre. iRight.
   iIntros (??) "S".
   iDestruct "H" as "[[-> >Hs1] | H]".
   - iApply fupd_mask_intro; first set_solver; iIntros "Hclose" (??) "Hstack".
    iExists _, _, _, _. iSplit.
     { iPureIntro. apply SeqS2. }
-    {  iNext; iFrame. by iMod "Hclose". }
-  -
-    iDestruct ("H" with "[$]") as ">H".
+    { iNext; iFrame.
+      iApply (stack_match_embed with "[$]").
+      by iMod "Hclose". }
+  - iDestruct ("H" with "[$]") as ">H".
     iModIntro.
     iIntros (r k) "Hmatch".
     iDestruct ("H" with "[$Hmatch]") as (????) "(% & H)".
     iExists _, _, _, _.
     iSplit; first by (iPureIntro; econstructor).
     clear.
-    iNext; iMod "H" as (ρ) "($ & $ & Hs2)"; iModIntro.
-    iApply "IH". iFrame.
-Qed.
+    iNext; iMod "H" as (ρ) "($ & Hs2)"; iModIntro.
+Admitted.
 
 Lemma wp_if E e s1 s2 Q : wp_expr E e (λ v, ∃ n, ⌜v = NumV n⌝ ∧
   ▷ wp E (if Z.eqb n 0 then s2 else s1) Q) ⊢ wp E (Sif e s1 s2) Q.
@@ -166,6 +182,7 @@ Proof.
   iExists _, _, _, _; iSplit.
   { iPureIntro; by econstructor. }
   iNext; iFrame.
+  iApply (stack_match_embed with "[$]").
   by iMod "Hclose".
 Qed.
 
@@ -185,11 +202,13 @@ Proof.
     iNext; iFrame.
     iMod "Hclose" as "_"; iModIntro.
     rewrite Heqb -wp_skip //.
+    by iApply (stack_match_embed with "[$]").
   - iExists _, _, _, _; iSplit.
     { iPureIntro; econstructor; eauto. }
     iNext; iFrame.
     iMod "Hclose" as "_"; iModIntro.
     rewrite Heqb -wp_seq //.
+    by iApply (stack_match_embed with "[$]").
 Qed.
 
 End wp.
