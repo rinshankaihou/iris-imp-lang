@@ -93,8 +93,8 @@ Definition eval_expr' e s v : Prop := (eval_expr e s.(ρ) s.(m) v).
 Definition eval_exprs' es s vs : Prop :=
   Forall2 (λ e v, eval_expr' e s v) es vs.
 
-Definition bind_vars (ρ: gmap string val) (ns: list string) (vs: list val) : gmap string val :=
-  foldr (λ x ρ', <[ x.1 := x.2 ]> ρ') ρ (zip ns vs).
+Definition bind_vars (ns: list string) (vs: list val) : gmap string val :=
+  foldr (λ x ρ', <[ x.1 := x.2 ]> ρ') ∅ (zip ns vs).
 
 Definition func_env := gmap string func.
 
@@ -141,7 +141,7 @@ Inductive step : func_env -> stmt → state → stmt → state → Prop :=
     F !! f = Some (Func ps ls s) →
     length ps = length es →
     eval_exprs' es σ vs →
-    let ρ' := bind_vars σ.(ρ) (ps ++ ls) (vs ++ repeat (NumV 0) (length ls)) in
+    let ρ' := bind_vars (ps ++ ls) (vs ++ repeat (NumV 0) (length ls)) in
     let k' := Kcall rv σ.(ρ) σ.(k) in
     step F (Scall rv f es) σ s 
                 (σ <| ρ := ρ' |> <| k:=k' |>)

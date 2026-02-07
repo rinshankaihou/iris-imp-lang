@@ -337,14 +337,14 @@ Definition stack_frac f := (/ pos_to_Qp (Pos.of_nat (1 + stack_size f)))%Qp.
 Definition stack_retainer f := assert_of (λ n,
   stack_frag n (stack_frac f) (stack_frac f) ∅).
 
-Definition stackframe f vs := (([∗ list] x;v ∈ (get_params f);vs, points_to_var x v) ∗
-  ([∗ list] x ∈ get_locals f, points_to_var x (NumV 0)))%I.
+Definition stackframe f vs := ([∗ list] x;v ∈ (get_params f ++ get_locals f);vs, points_to_var x v)%I.
 
 Definition ret_assert R :=
   {| Qnormal := False%I; Qbreak := False%I; Qcontinue := False%I; Qreturn := R |}.
 
 Definition call_assert E f vs x R := (⇑ (stack_retainer f -∗ stackframe f vs -∗
-  wp E (get_body f) (ret_assert (λ v, stack_retainer f ∗ (∃ vs, stackframe f vs) ∗
+  wp E (get_body f) (ret_assert (λ v, stack_retainer f ∗
+    (∃ vs, ⌜stack_size f = length vs⌝ ∧ stackframe f vs) ∗
     ⇓ ((∃ v, points_to_var x v) ∗ ▷ (points_to_var x v -∗ R))))))%I.
 
 Lemma wp_exprs_app E es Q σ ρ : wp_exprs E es Q -∗ ⎡state_interp σ ρ⎤ ={E}=∗
@@ -370,8 +370,8 @@ Proof.
 Qed.
 
 Lemma add_frame σ ρ r k x xs vs : ⎡state_interp σ ρ⎤ ∗ stack_match ρ r k ⊢
-  |==> ∃ ρ', ⎡state_interp σ ρ'⎤ ∗ ⇑ (stack_match ρ' (bind_vars r xs vs) (Kcall x r k) ∗
-    assert_of (λ n, stack_frag n (/ pos_to_Qp (Pos.of_nat (1 + size (bind_vars r xs vs))))%Qp 1%Qp (bind_vars r xs vs))).
+  |==> ∃ ρ', ⎡state_interp σ ρ'⎤ ∗ ⇑ (stack_match ρ' (bind_vars xs vs) (Kcall x r k) ∗
+    assert_of (λ n, stack_frag n (/ pos_to_Qp (Pos.of_nat (1 + size (bind_vars xs vs))))%Qp 1%Qp (bind_vars xs vs))).
 Proof.
   intros; rewrite /stack_match /=.
   destruct (cont_to_stack k) eqn: Hk.
@@ -387,15 +387,49 @@ Proof.
   iIntros "((<- & _) & $)".
 Qed.
 
-Lemma split_stackframe params locals body r vs :
-  let r' := bind_vars r (params ++ locals) (vs ++ repeat (NumV 0) (length locals)) in
-  assert_of (λ n, stack_frag n (/ pos_to_Qp (Pos.of_nat (1 + size r')))%Qp 1%Qp r') ⊢
+Lemma monPred_at_big_sepL2 : forall {I : biIndex} {PROP : bi} {A B} (Φ : A → B → monPred I PROP) (l1 : list A) (l2 : list B) n,
+  (([∗ list] a1;a2 ∈ l1;l2, Φ a1 a2) n) ⊣⊢ ([∗ list] a1;a2 ∈ l1;l2, Φ a1 a2 n).
+Proof.
+  induction l1; destruct l2; simpl; intros; monPred.unseal; try done.
+  rewrite IHl1 //.
+Qed.
+
+Lemma split_stackframe params locals body vs :
+  length (params ++ locals) = length vs → NoDup (params ++ locals) →
+  let r' := bind_vars (params ++ locals) vs in
+  assert_of (λ n, stack_frag n (/ pos_to_Qp (Pos.of_nat (1 + size r')))%Qp 1%Qp r') ⊣⊢
   stack_retainer (Func params locals body) ∗ stackframe (Func params locals body) vs.
 Proof.
+  split => n /=; rewrite /stack_retainer /stackframe; monPred.unseal.
+  rewrite monPred_at_big_sepL2 vars_equiv //.
+  case_decide.
+  - destruct params; last done; destruct locals; last done; rewrite /bind_vars /stack_frac /= bi.sep_emp.
+    by rewrite map_size_empty Qp.inv_1.
+  - rewrite /stack_frac /=.
+    replace (size _) with (length (params ++ locals)).
+    rewrite -app_length.
+    iSplit.
+    + rewrite Nat2Pos.inj_succ // Pplus_one_succ_l -pos_to_Qp_add.
+      set (q := (1 + _)%Qp).
+      rewrite -(Qp.mul_inv_r q).
+      destruct (q - 1)%Qp eqn: Hq.
+      apply Qp.sub_Some in Hq; rewrite {2} Hq Qp.mul_add_distr_r -frac_op.
+      rewrite -{1}(map_empty_union (bind_vars _ _)) stack_frag_split.
+      rewrite Qp.mul_1_l; iIntros "($ & ?)".
+      iExists _; iStopProof; f_equiv; try done.
+      * apply Qp.add_inj_r in Hq as <-; done.
+      * apply map_disjoint_empty_l.
+      * by apply Qp.sub_None, Qp.not_add_le_l in Hq.
+    + iIntros "(Hret & % & H)".
+      iDestruct (stack_frag_join with "[$Hret $H]") as ((<- & _)) "H".
+      rewrite !left_id Nat2Pos.inj_succ // Pplus_one_succ_l -pos_to_Qp_add.
+      set (q := (1 + _)%Qp).
+      by rewrite -{2}(Qp.mul_1_l (/ q)) -Qp.mul_add_distr_r Qp.mul_inv_r.
+    + rewrite map_size_list_to_map; last by rewrite fst_zip; try lia.
+      rewrite length_zip_with_l_eq //.
+Qed.
 
-Admitted.
-
-Lemma remove_frame σ ρ r x r0 k q : ⎡state_interp σ ρ⎤ ∗ stack_match ρ r (Kcall x r0 k) ∗ assert_of (λ n, stack_frag n q 1%Qp r) ⊢
+Lemma remove_frame σ ρ r x r0 k q r' : ⎡state_interp σ ρ⎤ ∗ stack_match ρ r (Kcall x r0 k) ∗ assert_of (λ n, stack_frag n q 1%Qp r') ⊢
   |==> ∃ ρ', ⎡state_interp σ ρ'⎤ ∗ ⇓ stack_match ρ' r0 k.
 Proof.
   intros; rewrite /stack_match /=.
@@ -411,13 +445,15 @@ Proof.
   rewrite lookup_insert_ne //; eapply stack_depth_max; eauto.
 Qed.
 
-Lemma wp_call E x f es Q : wp_exprs E es (λ vs, ∃ fd, ⌜F !! f = Some fd ∧ length es = length (get_params fd)⌝ ∧
-  ▷ call_assert E fd vs x (Qnormal Q)) ⊢ wp E (Scall x f es) Q.
+Lemma wp_call E x f es Q : wp_exprs E es (λ vs, ∃ fd, ⌜F !! f = Some fd ∧
+    length es = length (get_params fd) ∧ NoDup (get_params fd ++ get_locals fd)⌝ ∧
+  ▷ call_assert E fd (vs ++ repeat (NumV 0) (length (get_locals fd))) x (Qnormal Q)) ⊢
+  wp E (Scall x f es) Q.
 Proof.
   iIntros "H %% Hguard".
   rewrite wp_sk_unfold /wp_sk_pre; iRight.
   iIntros (??) "S".
-  iMod (wp_exprs_app with "H S") as (?) "(Hes & S & %fd & (% & %) & H)".
+  iMod (wp_exprs_app with "H S") as (?) "(Hes & S & %fd & (% & %Hlen & %) & H)".
   destruct fd; simpl in *.
   iApply fupd_mask_intro; first set_solver; iIntros "Hclose" (?) "Hstack".
   iDestruct ("Hes" with "[Hstack]") as %?; first by iApply stack_env_match.
@@ -431,15 +467,18 @@ Proof.
     iCombine "Hguard H Hstack" as "H"; rewrite !up1_sep; iApply "H". }
   iIntros "(Hguard & H & Hstack & Hframe)".
   iApply (stack_match_embed with "Hstack").
-  iDestruct (split_stackframe with "Hframe") as "(Hret & Hframe)".
+  assert (length (func_params ++ func_locals) = length (vs ++ repeat (NumV 0) (length func_locals))).
+  { rewrite !app_length repeat_length; f_equal.
+    rewrite -Hlen; by eapply Forall2_length. }
+  rewrite split_stackframe //; iDestruct "Hframe" as "(Hret & Hframe)".
   iApply ("H" with "Hret Hframe").
   do 3 (iSplit; first iIntros "[]").
   iIntros (?) "He"; simpl.
   iExists _; iSplit => //.
-  clear; rewrite wp_sk_unfold /wp_sk_pre; iRight.
+  clear dependent σ; rewrite wp_sk_unfold /wp_sk_pre; iRight.
   iIntros (??) "S".
   rewrite /wp_expr.
-  iMod ("He" with "S") as (?) "(He & S & Hret & (% & Hframe) & Hpost)".
+  iMod ("He" with "S") as (?) "(He & S & Hret & (% & % & Hframe) & Hpost)".
   iApply fupd_mask_intro; first set_solver; iIntros "Hclose" (?) "Hstack".
   iDestruct ("He" with "[Hstack]") as %?; first by iApply stack_env_match.
   iExists _,_, _, _; iSplit.
@@ -447,7 +486,8 @@ Proof.
   rewrite -down1_sep down1_later.
   iNext.
   iMod (remove_frame with "[$S $Hstack Hret Hframe]") as (?) "(S & Hstack)".
-  { admit. }
+  { iCombine "Hret Hframe" as "H"; rewrite -split_stackframe //.
+    rewrite app_length //. }
   iDestruct "Hpost" as "(Hx & Hpost)".
   iAssert (⇓ |==> ∃ ρ', stack_match ρ' (<[x:=v]> r) k ∗ x ↦v v ∗ ⎡state_interp σ ρ'⎤)%I
     with "[S Hx Hstack]" as "H'".
