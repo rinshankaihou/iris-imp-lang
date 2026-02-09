@@ -118,6 +118,11 @@ Inductive step : func_env -> stmt → state → stmt → state → Prop :=
               (Build_state (<[r := v]> ρ0) m k)
   .
 
+Inductive step_star : func_env -> stmt → state → stmt → state → Prop :=
+  | Step0 F s σ : step_star F s σ s σ
+  | Step1 F s σ s' σ' s'' σ'' : step F s σ s' σ' → step_star F s' σ' s'' σ'' →
+      step_star F s σ s'' σ''.
+
 Definition fresh_locs (ls : gset loc) : loc :=
   set_fold (λ k r, (1 + k) `max` r) 1 ls.
 

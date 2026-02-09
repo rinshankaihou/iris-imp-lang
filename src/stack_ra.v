@@ -14,7 +14,7 @@ Notation fixed_fracR A := (prodR (agreeR (leibnizO frac)) (prodR fracR A)).
 
 Notation frameR := (gmapR string (exclR (leibnizO val))).
 
-Notation envR := (authR (gmapUR nat (fixed_fracR frameR))).
+Definition envR := (authR (gmapUR nat (fixed_fracR frameR))).
 
 Class envGS Σ := EnvGS {
   envGS_inG :: inG Σ envR;
@@ -361,6 +361,13 @@ Proof.
 Qed.
 
 End env.
+
+Lemma env_init `{inG Σ envR} : ⊢ |==> ∃ H : envGS Σ, env_auth ∅.
+Proof.
+  iMod (own_alloc(A := envR) (● ∅)) as (γe) "?".
+  { by rewrite auth_auth_valid. }
+  iModIntro; iExists (EnvGS _ _ γe); iFrame.
+Qed.
 
 End val.
 

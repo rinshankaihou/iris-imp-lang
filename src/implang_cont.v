@@ -65,8 +65,8 @@ Fixpoint find_call k :=
   match k with
   | Kseq _ k' => find_call k'
   | Kwhile _ _ k' => find_call k'
-  | Kcall _ _ _ => Some k
-  | _ => None
+  | Kcall _ _ _ => k
+  | Kstop => Kstop
   end.
 
 Record state : Type := {
@@ -147,10 +147,15 @@ Inductive step : func_env -> stmt → state → stmt → state → Prop :=
                 (σ <| ρ := ρ' |> <| k:=k' |>)
   | ReturnS F e σ v ρ0 r k' :
     eval_expr' e σ v →
-    find_call σ.(k) = Some (Kcall r ρ0 k') →
+    find_call σ.(k) = Kcall r ρ0 k' →
     step F (Sreturn e) σ Sskip 
               (Build_state (<[r := v]> ρ0) σ.(m) k')
   .
+
+Inductive step_star : func_env -> stmt → state → stmt → state → Prop :=
+  | Step0 F s σ : step_star F s σ s σ
+  | Step1 F s σ s' σ' s'' σ'' : step F s σ s' σ' → step_star F s' σ' s'' σ'' →
+      step_star F s σ s'' σ''.
 
 Definition fresh_locs (ls : gset loc) : loc :=
   set_fold (λ k r, (1 + k) `max` r) 1 ls.

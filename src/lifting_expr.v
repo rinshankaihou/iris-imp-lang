@@ -4,7 +4,7 @@ From iris_simp_lang Require Export state_interp.
 
 Section wp_expr.
 
-Context `{!gen_heapGS loc val Σ} `{!envGS val Σ} `{!invGS_gen HasNoLc Σ}.
+Context `{!gen_heapGS loc val Σ} `{!envGS val Σ} `{!invGS_gen hlc Σ}.
 
 Implicit Types (ρ : @env_state val) (σ : gmap loc val).
 

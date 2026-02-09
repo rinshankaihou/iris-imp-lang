@@ -64,7 +64,7 @@ Definition guarded E Q k R :=
   ((Qnormal Q -∗ wp_sk E Sskip k R) ∧
    (Qbreak Q -∗ ∃ e s k', ⌜find_loop k = Some (Kwhile e s k')⌝ ∧ wp_sk E Sskip k' R) ∧
    (Qcontinue Q -∗ ∃ k', ⌜find_loop k = Some k'⌝ ∧ wp_sk E Sskip k' R) ∧
-   (∀ e, wp_expr E e (Qreturn Q) -∗ ∃ k', ⌜find_call k = Some k'⌝ ∧ wp_sk E (Sreturn e) k' R))%I.
+   (∀ e, wp_expr E e (Qreturn Q) -∗ wp_sk E (Sreturn e) (find_call k) R))%I.
 
 Definition wp E s Q := (∀ k R, guarded E Q k R -∗ wp_sk E s k R)%I.
 
@@ -339,11 +339,11 @@ Definition stack_retainer f := assert_of (λ n,
 
 Definition stackframe f vs := ([∗ list] x;v ∈ (get_params f ++ get_locals f);vs, points_to_var x v)%I.
 
-Definition ret_assert R :=
+Definition ret_post R :=
   {| Qnormal := False%I; Qbreak := False%I; Qcontinue := False%I; Qreturn := R |}.
 
 Definition call_assert E f vs x R := (⇑ (stack_retainer f -∗ stackframe f vs -∗
-  wp E (get_body f) (ret_assert (λ v, stack_retainer f ∗
+  wp E (get_body f) (ret_post (λ v, stack_retainer f ∗
     (∃ vs, ⌜stack_size f = length vs⌝ ∧ stackframe f vs) ∗
     ⇓ ((∃ v, points_to_var x v) ∗ ▷ (points_to_var x v -∗ R))))))%I.
 
@@ -474,7 +474,6 @@ Proof.
   iApply ("H" with "Hret Hframe").
   do 3 (iSplit; first iIntros "[]").
   iIntros (?) "He"; simpl.
-  iExists _; iSplit => //.
   clear dependent σ; rewrite wp_sk_unfold /wp_sk_pre; iRight.
   iIntros (??) "S".
   rewrite /wp_expr.
@@ -503,31 +502,28 @@ Proof.
   by iApply "Hguard"; iApply "H".
 Qed.
 
-Lemma find_call_idem k k' : find_call k = Some k' → find_call k' = Some k'.
+Lemma find_call_idem k : find_call (find_call k) = find_call k.
 Proof.
-  induction k; try done; simpl.
-  by inversion 1.
+  by induction k.
 Qed.
 
-Lemma cont_to_stack_call k k' : find_call k = Some k' →
-  cont_to_stack k = cont_to_stack k'.
+Lemma cont_to_stack_call k : cont_to_stack k = cont_to_stack (find_call k).
 Proof.
-  induction k; try done; simpl.
-  by inversion 1.
+  by induction k.
 Qed.
 
-Lemma stack_match_call ρ r k k' : find_call k = Some k' →
-  stack_match ρ r k ⊢ stack_match ρ r k'.
+Lemma stack_match_call ρ r k :
+  stack_match ρ r k ⊢ stack_match ρ r (find_call k).
 Proof.
   intros.
-  rewrite /stack_match /stack_level (cont_to_stack_call _ _ H) //.
+  rewrite /stack_match /stack_level cont_to_stack_call //.
 Qed.
 
 Lemma wp_return E e Q : wp_expr E e (Qreturn Q) ⊢ wp E (Sreturn e) Q.
 Proof.
   iIntros "H %% Hguard".
   iDestruct "Hguard" as "(_ & _ & _ & Hguard)".
-  iDestruct ("Hguard" with "H") as (??) "H".
+  iSpecialize ("Hguard" with "H").
   iStopProof.
   rewrite !wp_sk_unfold /wp_sk_pre; do 3 f_equiv.
   { by intros (? & ?). }
@@ -535,7 +531,112 @@ Proof.
   - by apply stack_match_call.
   - do 10 f_equiv.
     inversion 1; subst; constructor; auto; simpl in *.
-    by rewrite H -(find_call_idem k k').
+    by rewrite -> find_call_idem in *.
 Qed.
 
 End wp.
+
+Section adequacy.
+
+(* generalize? *)
+Definition not_stuck F s σ := (s = skip ∧ σ.(k) = Kstop) ∨
+  (∃ s' σ', step F s σ s' σ').
+
+Record adequate F s (σ1 : state) (φ : state → Prop) := {
+  adequate_result σ2 : σ2.(k) = Kstop →
+   step_star F s σ1 skip σ2 → φ σ2;
+  adequate_not_stuck s2 σ2 :
+   step_star F s σ1 s2 σ2 →
+   not_stuck F s2 σ2
+}.
+
+Lemma adequate_alt F s1 σ1 (φ : state → Prop) :
+  adequate F s1 σ1 φ ↔ ∀ s2 σ2,
+    step_star F s1 σ1 s2 σ2 →
+      ((s2 = skip ∧ σ2.(k) = Kstop) → φ σ2) ∧
+      (not_stuck F s2 σ2).
+Proof.
+  split.
+  - intros []; naive_solver.
+  - constructor; naive_solver.
+Qed.
+
+Inductive nsteps (F : func_env) : nat → stmt → state → stmt → state → Prop :=
+  | nsteps_refl s σ :
+     nsteps F 0 s σ s σ
+  | nsteps_l n s1 σ1 s2 σ2 s3 σ3 :
+     step F s1 σ1 s2 σ2 →
+     nsteps F n s2 σ2 s3 σ3 →
+     nsteps F (S n) s1 σ1 s3 σ3.
+Local Hint Constructors nsteps : core.
+
+Lemma step_star_nsteps F s1 σ1 s2 σ2 :
+  step_star F s1 σ1 s2 σ2 ↔ ∃ n, nsteps F n s1 σ1 s2 σ2.
+Proof.
+  split.
+  - induction 1; firstorder eauto.
+  - intros (n & Hsteps).
+    induction Hsteps; eauto using Step0, Step1.
+Qed.
+
+Definition normal_post `{envGS val Σ} Q :=
+  {| Qnormal := Q; Qbreak := False%I; Qcontinue := False%I; Qreturn := λ _, False%I |}.
+
+Section lemmas.
+
+Context `{!gen_heapGS loc val Σ} `{!envGS val Σ} `{!invGS_gen HasNoLc Σ}.
+
+Lemma guarded_stop F φ : ⊢ guarded F ⊤ (normal_post ⌜φ⌝%I) Kstop ⌜φ⌝%I.
+Proof.
+  iSplit; last repeat (iSplit; [iIntros "[]"|]); simpl.
+  - iIntros (?); rewrite wp_sk_unfold /wp_sk_pre; by iLeft.
+  - iIntros (?) "He".
+    rewrite wp_sk_unfold /wp_sk_pre /wp_expr.
+    iRight.
+    iIntros (??) "S"; iMod ("He" with "S") as (?) "(_ & _ & [])".
+Qed.
+
+Local Lemma wp_not_stuck F s k σ ρ r Q :
+  ⎡state_interp σ ρ⎤ -∗ stack_match ρ r k -∗ wp_sk F ⊤ s k Q ={⊤, ∅}=∗ ⌜not_stuck F s (Build_state r σ k)⌝.
+Proof.
+  rewrite wp_sk_unfold /wp_sk_pre /not_stuck /=. iIntros "Hσ Hr [(% & _) | H]".
+  - iApply fupd_mask_intro; auto.
+  - iMod ("H" with "Hσ") as "H".
+    iDestruct ("H" with "Hr") as (?????) "_"; eauto.
+Qed.
+
+End lemmas.
+
+Lemma wp_adequacy Σ `{!gen_heapGpreS loc val Σ} `{!inG Σ (@envR val)} `{!invGpreS Σ} F s σ φ :
+  (∀ `{!gen_heapGS loc val Σ} `{!envGS val Σ} `{Hinv : !invGS_gen HasNoLc Σ},
+     ⊢ |={⊤}=> wp F ⊤ s (normal_post ⌜φ⌝)) →
+  adequate F s (Build_state ∅ σ Kstop) (λ _, φ).
+Proof.
+  intros Hwp. apply adequate_alt; intros s2 σ2 H.
+  eapply uPred.pure_soundness.
+  apply step_star_nsteps in H as (n & H).
+  eapply (step_fupdN_soundness_gen _ HasNoLc n n).
+  iIntros (Hinv) "_".
+  iApply (embed_emp_valid_inj(PROP2 := monPred stack_index _)).
+  iMod (gen_heap_init σ) as (?) "[Hh _]".
+  iMod env_init as (?) "He".
+  iMod Hwp as "Hwp"; clear Hwp.
+  iSpecialize ("Hwp" with "[]"); first by iApply guarded_stop.
+  iAssert (stack_match ∅ ∅ Kstop) as "Hstack".
+  { rewrite /stack_match /=.
+
+  }
+  set (ρ := ∅) in H |- *; clearbody ρ.
+  set (k := Kstop) at 1; fold k in H; clearbody k.
+  iInduction n as [|n] "IH" forall (σ ρ k s H).
+  - inv H.
+    rewrite wp_sk_unfold /wp_sk_pre; iDestruct "Hwp" as "[Hwp | Hwp]".
+    + iDestruct "Hwp" as "((-> & ->) & >%)".
+      rewrite embed_fupd; iApply fupd_mask_intro; first set_solver.
+      iIntros "_"; iPureIntro; rewrite /not_stuck /=; auto.
+    + admit.
+  - inv H.
+    rewrite wp_sk_unfold /wp_sk_pre; iDestruct "Hwp" as "[Hwp | Hwp]".
+    { iDestruct "Hwp" as "((-> & ->) & _)"; inv H3. }
+    iMod ("Hwp" with "[]" )
+Qed.
