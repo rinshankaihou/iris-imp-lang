@@ -79,6 +79,16 @@ Proof.
   rewrite /set_var lookup_insert insert_insert H //.
 Qed.
 
+Lemma stack_match_stack_depth ρ r k (P : assert) i:
+  (stack_match ρ r k) i -∗ P i -∗
+  (stack_match ρ r k ∗ P) (stack_depth k).
+Proof.
+  unfold stack_match, stack_depth.
+  destruct (make_stack k).
+  rewrite /stack_level; monPred.unseal.
+  iIntros "(<- & ->) $". done.
+Qed.
+
 Lemma stack_match_embed ρ r k (P : assert) : stack_match ρ r k -∗ P -∗
   ⎡(stack_match ρ r k ∗ P) (stack_depth k)⎤.
 Proof.
@@ -149,26 +159,36 @@ Qed.
 
 Lemma wp_seq E s1 s2 Q : wp E s1 (▷ wp E s2 Q) ⊢ wp E (Sseq s1 s2) Q.
 Proof.
+  split => i.
   iIntros "H".
-  iLöb as "IH" forall (s1 s2 Q).
-  rewrite wp_unfold [wp _ (s1;;s2)%S _]wp_unfold /wp_pre. iRight.
-  iIntros (??) "S".
+  iLöb as "IH" forall (s1 s2 Q i).
+  rewrite wp_unfold [wp _ (s1;;s2)%S _]wp_unfold /wp_pre.
+  (* set (wp as IH. *)
+  monPred.unseal.
+  iRight.
+  iIntros (???<-) "S".
   iDestruct "H" as "[[-> >Hs1] | H]".
-  - iApply fupd_mask_intro; first set_solver; iIntros "Hclose" (??) "Hstack".
+  - iApply fupd_mask_intro; first set_solver; iIntros "Hclose" (???<-) "Hstack".
    iExists _, _, _, _. iSplit.
     { iPureIntro. apply SeqS2. }
     { iNext; iFrame.
-      iApply (stack_match_embed with "[$]").
-      by iMod "Hclose". }
-  - iDestruct ("H" with "[$]") as ">H".
+      destruct (make_stack x2).
+      iMod "Hclose". iModIntro.
+      rewrite -monPred_at_sep.
+      iApply (stack_match_stack_depth with "[$] [$]").
+    }
+  - iDestruct ("H" with "[//] [$]") as ">H".
     iModIntro.
-    iIntros (r k) "Hmatch".
-    iDestruct ("H" with "[$Hmatch]") as (????) "(% & H)".
+    iIntros (r k ? <-) "Hmatch".
+    iDestruct ("H" with "[//] [$Hmatch]") as (????) "(% & H)".
     iExists _, _, _, _.
     iSplit; first by (iPureIntro; econstructor).
     clear.
-    iNext; iMod "H" as (ρ) "($ & Hs2)"; iModIntro.
-Admitted.
+    iNext; iMod "H" as (ρ) "($ & ? & ?)"; iModIntro.
+    rewrite -monPred_at_sep.
+    iApply (stack_match_stack_depth with "[$] [-]").
+    iApply ("IH" with "[$]").
+Qed.
 
 Lemma wp_if E e s1 s2 Q : wp_expr E e (λ v, ∃ n, ⌜v = NumV n⌝ ∧
   ▷ wp E (if Z.eqb n 0 then s2 else s1) Q) ⊢ wp E (Sif e s1 s2) Q.
