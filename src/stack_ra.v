@@ -362,10 +362,21 @@ Qed.
 
 End env.
 
-Lemma env_init `{inG Σ envR} : ⊢ |==> ∃ H : envGS Σ, env_auth ∅.
+Lemma env_init0 `{inG Σ envR} : ⊢ |==> ∃ H : envGS Σ, env_auth ∅.
 Proof.
   iMod (own_alloc(A := envR) (● ∅)) as (γe) "?".
   { by rewrite auth_auth_valid. }
+  iModIntro; iExists (EnvGS _ _ γe); iFrame.
+Qed.
+
+Lemma env_init `{inG Σ envR} r : ⊢ |==> ∃ H : envGS Σ,
+  env_auth {[O := r]} ∗ ∃ q, stack_frag O q 1%Qp r.
+Proof.
+  iMod (own_alloc(A := envR) (● {[O := (to_agree (/ pos_to_Qp (Pos.of_nat (S (size r))))%Qp, (1%Qp, Excl <$> r))]} ⋅
+    ◯ {[O := (to_agree (/ pos_to_Qp (Pos.of_nat (S (size r))))%Qp, (1%Qp, Excl <$> r))]})) as (γe) "(? & ?)".
+  { rewrite auth_both_valid_discrete; split => //=.
+    rewrite singleton_valid; repeat split => //=.
+    intros i; rewrite lookup_fmap; destruct (r !! i); done. }
   iModIntro; iExists (EnvGS _ _ γe); iFrame.
 Qed.
 

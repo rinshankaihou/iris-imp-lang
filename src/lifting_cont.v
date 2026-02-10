@@ -607,6 +607,23 @@ Qed.
 
 End lemmas.
 
+Lemma eval_expr_det e r m v1 : eval_expr e r m v1 → forall v2, eval_expr e r m v2 →
+  v1 = v2.
+Proof.
+  induction 1; inversion 1; subst; try congruence.
+  - specialize (IHeval_expr1 _ ltac:(eassumption)).
+    specialize (IHeval_expr2 _ ltac:(eassumption)); congruence.
+  - specialize (IHeval_expr _ ltac:(eassumption)); congruence.
+Qed.
+
+Lemma step_det F s σ s1 σ1 s2 σ2 : step F s σ s1 σ1 → step F s σ s2 σ2 →
+  s1 = s2 ∧ σ1 = σ2.
+Proof.
+  inversion 1; subst; inversion 1; subst; try done.
+  - assert (v0 = v) as -> by (by eapply eval_expr_det); done.
+  - (* alloc diverges *)
+Admitted.
+
 Lemma wp_adequacy Σ `{!gen_heapGpreS loc val Σ} `{!inG Σ (@envR val)} `{!invGpreS Σ} F s σ φ :
   (∀ `{!gen_heapGS loc val Σ} `{!envGS val Σ} `{Hinv : !invGS_gen HasNoLc Σ},
      ⊢ |={⊤}=> wp F ⊤ s (normal_post ⌜φ⌝)) →
@@ -617,26 +634,39 @@ Proof.
   apply step_star_nsteps in H as (n & H).
   eapply (step_fupdN_soundness_gen _ HasNoLc n n).
   iIntros (Hinv) "_".
-  iApply (embed_emp_valid_inj(PROP2 := monPred stack_index _)).
   iMod (gen_heap_init σ) as (?) "[Hh _]".
-  iMod env_init as (?) "He".
-  iMod Hwp as "Hwp"; clear Hwp.
-  iSpecialize ("Hwp" with "[]"); first by iApply guarded_stop.
-  iAssert (stack_match ∅ ∅ Kstop) as "Hstack".
-  { rewrite /stack_match /=.
+  iMod (env_init ∅) as (?) "(He & _)".
+  iPoseProof (monPred_in_entails _ _ (Hwp _ _ _) O with "[]") as "Hwp"; clear Hwp.
+  { by monPred.unseal. }
+  rewrite monPred_at_fupd; iMod "Hwp".
+  rewrite /wp.
+  set (Q := normal_post _); monPred.unseal; subst Q.
+  iSpecialize ("Hwp" with "[//] []").
+  { iApply (monPred_in_entails _ _ (guarded_stop _ _) with "[]"); by monPred.unseal. }
+  iAssert (stack_match {[0 := ∅]} ∅ Kstop O) as "-#Hstack".
+  { rewrite /stack_match /stack_level; by monPred.unseal. }
 
-  }
-  set (ρ := ∅) in H |- *; clearbody ρ.
-  set (k := Kstop) at 1; fold k in H; clearbody k.
-  iInduction n as [|n] "IH" forall (σ ρ k s H).
+  set (r := ∅) in H |- *; clearbody r.
+  set (k := Kstop) at 1 2; fold k in H; clearbody k.
+  set (ρ := {[0 := r]}); change {[0 := r]} with ρ; clearbody ρ.
+  set (l := 0); clearbody l.
+  iInduction n as [|n] "IH" forall (σ ρ r k l s H).
   - inv H.
-    rewrite wp_sk_unfold /wp_sk_pre; iDestruct "Hwp" as "[Hwp | Hwp]".
+    rewrite wp_sk_unfold /wp_sk_pre; monPred.unseal.
+    iDestruct "Hwp" as "[Hwp | Hwp]".
     + iDestruct "Hwp" as "((-> & ->) & >%)".
-      rewrite embed_fupd; iApply fupd_mask_intro; first set_solver.
+      iApply fupd_mask_intro; first set_solver.
       iIntros "_"; iPureIntro; rewrite /not_stuck /=; auto.
     + admit.
   - inv H.
-    rewrite wp_sk_unfold /wp_sk_pre; iDestruct "Hwp" as "[Hwp | Hwp]".
+    rewrite wp_sk_unfold /wp_sk_pre; monPred.unseal; iDestruct "Hwp" as "[Hwp | Hwp]".
     { iDestruct "Hwp" as "((-> & ->) & _)"; inv H3. }
-    iMod ("Hwp" with "[]" )
-Qed.
+    iMod ("Hwp" with "[//] [$Hh $He]") as "Hwp".
+    iDestruct ("Hwp" with "[//] Hstack") as (???? Hstep) "H".
+    eapply step_det in H3; last done.
+    destruct H3 as (<- & <-).
+    iModIntro; simpl.
+    iModIntro; iNext.
+    iMod "H" as (?) "((Hh & He) & Hstack & H)".
+    iApply ("IH" with "[//] Hh He H Hstack").
+Admitted.
