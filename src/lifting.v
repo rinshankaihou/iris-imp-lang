@@ -28,9 +28,9 @@ Proof.
   by rewrite lookup_insert.
 Qed.
 
-Definition wp_pre (wp : coPset -d> stmt -d> assert -d> assert) :
-    coPset -d> stmt -d> assert -d> assert := λ E s Q,
-  ((⌜s = skip⌝ ∧ |={E}=> Q) ∨
+Definition wp_pre (wp : coPset -d> stmt -d> (option val → assert) -d> assert) :
+    coPset -d> stmt -d> (option val → assert) -d> assert := λ E s Q,
+  ((⌜s = skip⌝ ∧ |={E}=> Q None) ∨
    (∀ σ ρ, ⎡state_interp σ ρ⎤ ={E,∅}=∗ ∀ r k, stack_match ρ r k -∗ ∃ s' r' σ' k',
         ⌜step F s (Build_state r σ k) s' (Build_state r' σ' k')⌝ ∗
         ▷ |={∅,E}=> ∃ ρ', ⎡state_interp σ' ρ' ∗ (stack_match ρ' r' k' ∗ wp E s' Q) (stack_depth k')⎤))%I.
@@ -50,7 +50,7 @@ Proof. rewrite -wp_aux.(seal_eq) //. Qed.
 Lemma wp_unfold E s Q : wp E s Q ⊣⊢ wp_pre wp E s Q.
 Proof. rewrite wp_unseal. apply (fixpoint_unfold wp_pre). Qed.
 
-Lemma wp_skip E Q : Q ⊢ wp E skip Q.
+Lemma wp_skip E Q : Q None ⊢ wp E skip Q.
 Proof.
   rewrite wp_unfold /wp_pre. iIntros. iLeft. iSplit; done.
 Qed.
@@ -98,7 +98,7 @@ Proof.
 Qed.
 
 Lemma wp_assign E x e Q : wp_expr E e (λ v, (∃ v0, x ↦v v0) ∗
-  ▷ (x ↦v v -∗ Q)) ⊢ wp E (Sassign x e) Q.
+  ▷ (x ↦v v -∗ Q None)) ⊢ wp E (Sassign x e) Q.
 Proof.
   rewrite wp_unfold /wp_pre /stack_depth. iIntros "H". iRight.
   iIntros (??) "S".
@@ -118,7 +118,7 @@ Proof.
 Qed.
 
 Lemma wp_alloc E x Q : (∃ v0, x ↦v v0) ∗
-  ▷ (∀ l, points_to_var x (LocV l) -∗ l ↦ NumV 0 -∗ Q) ⊢ wp E (Salloc x) Q.
+  ▷ (∀ l, points_to_var x (LocV l) -∗ l ↦ NumV 0 -∗ Q None) ⊢ wp E (Salloc x) Q.
 Proof.
   rewrite wp_unfold /wp_pre. iIntros "H". iRight.
   iIntros (??) "S".
@@ -137,7 +137,7 @@ Proof.
 Qed.
 
 Lemma wp_store E e1 e2 Q : wp_expr E e2 (λ v, wp_expr E e1 (λ v1, ∃ l v0, ⌜v1 = LocV l⌝ ∧
-  l ↦ v0 ∗ ▷ (l ↦ v -∗ Q))) ⊢ wp E (Sstore e1 e2) Q.
+  l ↦ v0 ∗ ▷ (l ↦ v -∗ Q None))) ⊢ wp E (Sstore e1 e2) Q.
 Proof.
   rewrite wp_unfold /wp_pre. iIntros "H". iRight.
   iIntros (??) "S".
@@ -157,7 +157,7 @@ Proof.
   rewrite -wp_skip. by iApply "Hpost".
 Qed.
 
-Lemma wp_seq E s1 s2 Q : wp E s1 (▷ wp E s2 Q) ⊢ wp E (Sseq s1 s2) Q.
+Lemma wp_seq E s1 s2 Q : wp E s1 (λ _, ▷ wp E s2 Q) ⊢ wp E (Sseq s1 s2) Q.
 Proof.
   split => i.
   iIntros "H".
@@ -207,7 +207,7 @@ Proof.
 Qed.
 
 Lemma wp_while E e s Q : wp_expr E e (λ v, ∃ n, ⌜v = NumV n⌝ ∧
-  ▷ if Z.eqb n 0 then Q else wp E s (▷ wp E (Swhile e s) Q)) ⊢
+  ▷ if Z.eqb n 0 then Q None else wp E s (λ _, ▷ wp E (Swhile e s) Q)) ⊢
   wp E (Swhile e s) Q.
 Proof.
   rewrite [X in _ ⊢ X]wp_unfold /wp_pre. iIntros "H". iRight.
