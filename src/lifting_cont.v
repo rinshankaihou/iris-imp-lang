@@ -127,11 +127,11 @@ Proof.
   iApply fupd_mask_intro; first set_solver; iIntros "Hclose" (?) "Hstack".
   iDestruct (var_e with "[$Hx $S $Hstack]") as %?.
   iExists _, _, _, _; iSplit.
-  { iPureIntro; by apply alloc_fresh. }
+  { iPureIntro; by constructor. }
   iNext; simpl.
   iMod (var_update with "[$Hx $S $Hstack]") as (?) "(? & Hx & S)".
   iMod (state_interp_alloc with "S") as "($ & ?)".
-  { apply not_elem_of_dom, fresh_locs_fresh. }
+  { apply next_loc_new. }
   iMod "Hclose"; iModIntro.
   iApply (stack_match_embed with "[$]").
   by iApply "Hguard"; iApply ("Hpost" with "[$]").
@@ -616,13 +616,27 @@ Proof.
   - specialize (IHeval_expr _ ltac:(eassumption)); congruence.
 Qed.
 
+Ltac expr_det := match goal with H1 : eval_expr' ?a ?b ?v1, H2 : eval_expr' ?a ?b ?v2 |- _ =>
+  let H := fresh "Heq" in pose proof (eval_expr_det _ _ _ _ H1 _ H2) as H; clear H2; inv H end.
+
+Lemma eval_exprs_det e σ v1 : eval_exprs' e σ v1 → forall v2, eval_exprs' e σ v2 →
+  v1 = v2.
+Proof.
+  induction 1; inversion 1; subst; try congruence.
+  expr_det; f_equiv; auto.
+Qed.
+
 Lemma step_det F s σ s1 σ1 s2 σ2 : step F s σ s1 σ1 → step F s σ s2 σ2 →
   s1 = s2 ∧ σ1 = σ2.
 Proof.
-  inversion 1; subst; inversion 1; subst; try done.
-  - assert (v0 = v) as -> by (by eapply eval_expr_det); done.
-  - (* alloc diverges *)
-Admitted.
+  inversion 1; subst; inversion 1; subst; repeat expr_det; try done; try congruence.
+  - by rewrite H0 in H2; inv H2.
+  - by rewrite H0 in H2; inv H2.
+  - by rewrite H0 in H2; inv H2.
+  - by rewrite H0 in H2; inv H2.
+  - rewrite H0 in H8; inv H8. eapply eval_exprs_det in H2; last done. by subst.
+  - by rewrite H1 in H6; inv H6.
+Qed.
 
 Lemma wp_adequacy Σ `{!gen_heapGpreS loc val Σ} `{!inG Σ (@envR val)} `{!invGpreS Σ} F s σ φ :
   (∀ `{!gen_heapGS loc val Σ} `{!envGS val Σ} `{Hinv : !invGS_gen HasNoLc Σ},
@@ -646,7 +660,7 @@ Proof.
   iAssert (stack_match {[0 := ∅]} ∅ Kstop O) as "-#Hstack".
   { rewrite /stack_match /stack_level; by monPred.unseal. }
 
-  set (r := ∅) in H |- *; clearbody r.
+  set (r := ∅) in *; clearbody r.
   set (k := Kstop) at 1 2; fold k in H; clearbody k.
   set (ρ := {[0 := r]}); change {[0 := r]} with ρ; clearbody ρ.
   set (l := 0); clearbody l.
@@ -657,7 +671,11 @@ Proof.
     + iDestruct "Hwp" as "((-> & ->) & >%)".
       iApply fupd_mask_intro; first set_solver.
       iIntros "_"; iPureIntro; rewrite /not_stuck /=; auto.
-    + admit.
+    + iMod ("Hwp" with "[//] [$Hh $He]") as "Hwp".
+      iDestruct ("Hwp" with "[//] Hstack") as (???? Hstep) "H".
+      iPureIntro; split.
+      * intros (-> & ->); inv Hstep.
+      * right; eauto.
   - inv H.
     rewrite wp_sk_unfold /wp_sk_pre; monPred.unseal; iDestruct "Hwp" as "[Hwp | Hwp]".
     { iDestruct "Hwp" as "((-> & ->) & _)"; inv H3. }
@@ -669,4 +687,6 @@ Proof.
     iModIntro; iNext.
     iMod "H" as (?) "((Hh & He) & Hstack & H)".
     iApply ("IH" with "[//] Hh He H Hstack").
-Admitted.
+Qed.
+
+End adequacy.

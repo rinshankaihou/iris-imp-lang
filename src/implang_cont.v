@@ -102,11 +102,10 @@ Inductive step : func_env -> stmt → state → stmt → state → Prop :=
   | AssignS F (x: string) e σ (v: val) :
     eval_expr' e σ v →
     step F (Sassign x e) σ Sskip (σ <| ρ ::= <[x := v]> |>)
-  | AllocS F x σ l :
-    σ.(m) !! l = None →
+  | AllocS F x σ :
     step F (Salloc x) σ Sskip
-              (σ <| ρ ::= <[x := LocV l]> |>
-                 <| m ::= <[l := NumV 0]> |>)
+              (σ <| ρ ::= <[x := LocV (next_loc σ.(m))]> |>
+                 <| m ::= <[(next_loc σ.(m)) := NumV 0]> |>)
   | StoreS F e1 e2 σ l v1 v2 :
     eval_expr' e1 σ (LocV l) →
     eval_expr' e2 σ v2 →
@@ -157,7 +156,7 @@ Inductive step_star : func_env -> stmt → state → stmt → state → Prop :=
   | Step1 F s σ s' σ' s'' σ'' : step F s σ s' σ' → step_star F s' σ' s'' σ'' →
       step_star F s σ s'' σ''.
 
-Definition fresh_locs (ls : gset loc) : loc :=
+(*Definition fresh_locs (ls : gset loc) : loc :=
   set_fold (λ k r, (1 + k) `max` r) 1 ls.
 
 Lemma fresh_locs_fresh ls :
@@ -181,4 +180,4 @@ Proof.
   apply AllocS.
   apply (not_elem_of_dom (D := gset loc)).
   by apply fresh_locs_fresh.
-Qed.
+Qed.*)

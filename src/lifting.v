@@ -126,11 +126,11 @@ Proof.
   iApply fupd_mask_intro; first set_solver; iIntros "Hclose" (??) "Hstack".
   iDestruct (var_e with "[$Hx $S $Hstack]") as %?.
   iExists _, _, _, _; iSplit.
-  { iPureIntro; by apply alloc_fresh. }
+  { iPureIntro; by econstructor. }
   iNext.
   iMod (var_update with "[$Hx $S $Hstack]") as (?) "(? & Hx & S)".
   iMod (state_interp_alloc with "S") as "($ & S)".
-  { apply not_elem_of_dom, fresh_locs_fresh. }
+  { apply next_loc_new. }
   iMod "Hclose"; iModIntro.
   iApply (stack_match_embed with "[$]").
   rewrite -wp_skip. by iApply ("Hpost" with "[$]").
@@ -232,3 +232,125 @@ Proof.
 Qed.
 
 End wp.
+
+Section adequacy.
+
+(* generalize? *)
+Definition not_stuck F s σ := s = skip ∨
+  (∃ s' σ', step F s σ s' σ').
+
+Record adequate F s (σ1 : state) (φ : state → Prop) := {
+  adequate_result σ2 :
+   step_star F s σ1 skip σ2 → φ σ2;
+  adequate_not_stuck s2 σ2 :
+   step_star F s σ1 s2 σ2 →
+   not_stuck F s2 σ2
+}.
+
+Lemma adequate_alt F s1 σ1 (φ : state → Prop) :
+  adequate F s1 σ1 φ ↔ ∀ s2 σ2,
+    step_star F s1 σ1 s2 σ2 →
+      (s2 = skip → φ σ2) ∧
+      (not_stuck F s2 σ2).
+Proof.
+  split.
+  - intros []; naive_solver.
+  - constructor; naive_solver.
+Qed.
+
+Inductive nsteps (F : func_env) : nat → stmt → state → stmt → state → Prop :=
+  | nsteps_refl s σ :
+     nsteps F 0 s σ s σ
+  | nsteps_l n s1 σ1 s2 σ2 s3 σ3 :
+     step F s1 σ1 s2 σ2 →
+     nsteps F n s2 σ2 s3 σ3 →
+     nsteps F (S n) s1 σ1 s3 σ3.
+Local Hint Constructors nsteps : core.
+
+Lemma step_star_nsteps F s1 σ1 s2 σ2 :
+  step_star F s1 σ1 s2 σ2 ↔ ∃ n, nsteps F n s1 σ1 s2 σ2.
+Proof.
+  split.
+  - induction 1; firstorder eauto.
+  - intros (n & Hsteps).
+    induction Hsteps; eauto using Step0, Step1.
+Qed.
+
+Lemma eval_expr_det e r m v1 : eval_expr e r m v1 → forall v2, eval_expr e r m v2 →
+  v1 = v2.
+Proof.
+  induction 1; inversion 1; subst; try congruence.
+  - specialize (IHeval_expr1 _ ltac:(eassumption)).
+    specialize (IHeval_expr2 _ ltac:(eassumption)); congruence.
+  - specialize (IHeval_expr _ ltac:(eassumption)); congruence.
+Qed.
+
+Ltac expr_det := match goal with H1 : eval_expr' ?a ?b ?v1, H2 : eval_expr' ?a ?b ?v2 |- _ =>
+  let H := fresh "Heq" in pose proof (eval_expr_det _ _ _ _ H1 _ H2) as H; clear H2; inv H end.
+
+Lemma eval_exprs_det e σ v1 : eval_exprs' e σ v1 → forall v2, eval_exprs' e σ v2 →
+  v1 = v2.
+Proof.
+  induction 1; inversion 1; subst; try congruence.
+  expr_det; f_equiv; auto.
+Qed.
+
+Lemma step_det F s σ s1 σ1 s2 σ2 : step F s σ s1 σ1 → step F s σ s2 σ2 →
+  s1 = s2 ∧ σ1 = σ2.
+Proof.
+  intros; generalize dependent s2.
+  induction H; inversion 1; subst; repeat expr_det; try done; try congruence.
+  - edestruct IHstep; first done; by subst.
+  - inv H.
+  - inv H6.
+  - rewrite H in H7; inv H7. eapply eval_exprs_det in H1; last done. by subst.
+Qed.
+
+Lemma wp_adequacy Σ `{!gen_heapGpreS loc val Σ} `{!inG Σ (@envR val)} `{!invGpreS Σ} F s σ φ :
+  (∀ `{!gen_heapGS loc val Σ} `{!envGS val Σ} `{Hinv : !invGS_gen HasNoLc Σ},
+     ⊢ |={⊤}=> wp F ⊤ s (λ _, ⌜φ⌝)) →
+  adequate F s (Build_state ∅ σ []) (λ _, φ).
+Proof.
+  intros Hwp. apply adequate_alt; intros s2 σ2 H.
+  eapply uPred.pure_soundness.
+  apply step_star_nsteps in H as (n & H).
+  eapply (step_fupdN_soundness_gen _ HasNoLc n n).
+  iIntros (Hinv) "_".
+  iMod (gen_heap_init σ) as (?) "[Hh _]".
+  iMod (env_init ∅) as (?) "(He & _)".
+  iPoseProof (monPred_in_entails _ _ (Hwp _ _ _) O with "[]") as "Hwp"; clear Hwp.
+  { by monPred.unseal. }
+  rewrite monPred_at_fupd; iMod "Hwp".
+  iAssert (stack_match {[0 := ∅]} ∅ [] O) as "-#Hstack".
+  { rewrite /stack_match /stack_level; by monPred.unseal. }
+
+  set (r := ∅) in *; clearbody r.
+  set (k := []) in *; clearbody k.
+  set (ρ := {[0 := r]}); clearbody ρ.
+  set (l := 0); clearbody l.
+  iInduction n as [|n] "IH" forall (σ ρ r k l s H).
+  - inv H.
+    rewrite wp_unfold /wp_pre; monPred.unseal.
+    iDestruct "Hwp" as "[Hwp | Hwp]".
+    + iDestruct "Hwp" as "(-> & >%)".
+      iApply fupd_mask_intro; first set_solver.
+      iIntros "_"; iPureIntro; rewrite /not_stuck /=; auto.
+    + iMod ("Hwp" with "[//] [$Hh $He]") as "Hwp".
+      iDestruct ("Hwp" with "[//] Hstack") as (???? Hstep) "H".
+      iPureIntro; split.
+      * intros ->; inv Hstep.
+      * right; eauto.
+  - inv H.
+    rewrite wp_unfold /wp_pre; monPred.unseal; iDestruct "Hwp" as "[Hwp | Hwp]".
+    { iDestruct "Hwp" as "(-> & _)"; inv H3. }
+    iMod ("Hwp" with "[//] [$Hh $He]") as "Hwp".
+    iDestruct ("Hwp" with "[//] Hstack") as (???? Hstep) "H".
+    eapply step_det in H3; last done.
+    destruct H3 as (<- & <-).
+    iModIntro; simpl.
+    iModIntro; iNext.
+    iMod "H" as (?) "((Hh & He) & Hstack & H)".
+    iApply ("IH" with "[//] Hh He H Hstack").
+Qed.
+
+End adequacy.

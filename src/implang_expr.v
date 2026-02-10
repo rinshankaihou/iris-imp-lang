@@ -105,3 +105,22 @@ Fixpoint exec_eval_expr (e : expr) (ρ : gmap string val) (m : gmap loc val) : o
     | _, _ => None
     end
   end.
+
+Definition max_loc (m : gmap loc val) := map_fold (λ l _ x, Z.max l x) 0 m .
+Definition next_loc (m : gmap loc val) := max_loc m + 1.
+
+Lemma max_loc_max : forall a l, a !! l ≠ None → l ≤ max_loc a.
+Proof.
+  induction a using map_first_key_ind; intros.
+  - rewrite lookup_empty // in H.
+  - rewrite /max_loc map_fold_insert_L //; last lia.
+    destruct (decide (l = i)); try lia.
+    rewrite lookup_insert_ne // in H1.
+    specialize (IHa _ H1); rewrite /max_loc in IHa; lia.
+Qed.
+
+Lemma next_loc_new : forall a, a !! (next_loc a) = None.
+Proof.
+  intros; destruct (decide (a !! (next_loc a) = None)); first done.
+  apply max_loc_max in n; rewrite /next_loc in n; lia.
+Qed.

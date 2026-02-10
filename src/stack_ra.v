@@ -369,7 +369,7 @@ Proof.
   iModIntro; iExists (EnvGS _ _ γe); iFrame.
 Qed.
 
-Lemma env_init `{inG Σ envR} r : ⊢ |==> ∃ H : envGS Σ,
+Lemma env_init `{inG Σ envR} (r : gmap string val) : ⊢ |==> ∃ H : envGS Σ,
   env_auth {[O := r]} ∗ ∃ q, stack_frag O q 1%Qp r.
 Proof.
   iMod (own_alloc(A := envR) (● {[O := (to_agree (/ pos_to_Qp (Pos.of_nat (S (size r))))%Qp, (1%Qp, Excl <$> r))]} ⋅
