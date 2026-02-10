@@ -28,17 +28,28 @@ Proof.
   by rewrite lookup_insert.
 Qed.
 
+Fixpoint no_return (s:stmt) :=
+  match s with
+  | Sseq s1 s2 => no_return s1 ∧ no_return s2
+  | Sif _ s1 s2 => no_return s1 ∧ no_return s2
+  | Swhile _ s => no_return s
+  | Sreturn _ => False
+  | _ => True
+  end.
+  
 Definition wp_pre (wp : coPset -d> stmt -d> (option val → assert) -d> assert) :
     coPset -d> stmt -d> (option val → assert) -d> assert := λ E s Q,
   ((⌜s = skip⌝ ∧ |={E}=> Q None) ∨
-   (∀ σ ρ, ⎡state_interp σ ρ⎤ ={E,∅}=∗ ∀ r k, stack_match ρ r k -∗ ∃ s' r' σ' k',
+   (∀ σ ρ, ⎡state_interp σ ρ⎤ ={E,∅}=∗ ∀ r k, stack_match ρ r k -∗
+    (⌜k=[] -> no_return s⌝) -∗
+    ∃ s' r' σ' k',
         ⌜step F s (Build_state r σ k) s' (Build_state r' σ' k')⌝ ∗
         ▷ |={∅,E}=> ∃ ρ', ⎡state_interp σ' ρ' ∗ (stack_match ρ' r' k' ∗ wp E s' Q) (stack_depth k')⎤))%I.
 
 Local Instance wp_contractive : Contractive (wp_pre).
 Proof.
   rewrite /wp_pre /= => n wp wp' Hwp E s Q.
-  do 29 (f_contractive || f_equiv). apply Hwp.
+  do 30 (f_contractive || f_equiv). apply Hwp.
 Qed.
 
 Local Definition wp_def := fixpoint wp_pre.
@@ -96,6 +107,67 @@ Proof.
   destruct (make_stack k).
   iIntros "(#? & %) P"; iApply stack_level_embed; by iFrame "# ∗".
 Qed.
+
+Definition get_params f := let 'Func params _ _ := f in params.
+Definition get_locals f := let 'Func _ locals _ := f in locals.
+Definition get_body f := let 'Func _ _ body := f in body.
+
+Definition stack_size f := let 'Func params locals _ := f in
+  (length params + length locals)%nat.
+
+Definition stack_frac f := (/ pos_to_Qp (Pos.of_nat (1 + stack_size f)))%Qp.
+
+Definition stack_retainer f := assert_of (λ n,
+  stack_frag n (stack_frac f) (stack_frac f) ∅).
+
+Definition stackframe f vs := ([∗ list] x;v ∈ (get_params f ++ get_locals f);vs, points_to_var x v)%I.
+
+Definition call_assert E f vs x R := (⇑ (stack_retainer f -∗ stackframe f vs -∗
+  wp E (get_body f) ((λ v', ∃ v, ⌜Some v = v'⌝ ∧ stack_retainer f ∗
+    (∃ vs, ⌜stack_size f = length vs⌝ ∧ stackframe f vs) ∗
+    ⇓ ((∃ v, points_to_var x v) ∗ ▷ (points_to_var x v -∗ R))))))%I.
+
+
+Lemma wp_return E e Q : wp_expr E e (λ v, Q $ Some v) ⊢ wp E (Sreturn e) Q.
+Proof.
+  rewrite !wp_unfold /wp_pre.
+  iIntros "H".
+  iRight.
+  iIntros (σ ρ) "S".
+  rewrite /wp_expr.
+  iMod ("H" with "[$]") as "(% & He & ? & ?)".
+  iApply fupd_mask_intro; first set_solver.
+  iIntros "Hclose" (r k) "s %".
+  iDestruct ("He" with "[s]") as "%".
+  { by iApply stack_env_match. }
+
+  destruct k as [|(?, ?) ?].
+  { specialize (H eq_refl). rewrite /no_return // in H. }
+  iExists skip, _, σ, _.
+  iSplit.
+  { iPureIntro; by econstructor. }
+  iModIntro.
+  iMod "Hclose". iModIntro.
+  iExists _. iFrame.
+  iClear "Hclose".
+  iStopProof.
+  split => ?.
+  monPred.unseal. simpl.
+  rewrite /stack_match /stack_depth /=.
+  destruct (make_stack k) as [le depth] eqn:?.
+  rewrite !monPred_at_sep /stack_level /=.
+  monPred.unseal.
+  iIntros "(? & <- & ?)".
+  
+
+
+
+  
+
+  iApply (stack_match_embed with "[$] [-]").
+
+Qed.
+
 
 Lemma wp_assign E x e Q : wp_expr E e (λ v, (∃ v0, x ↦v v0) ∗
   ▷ (x ↦v v -∗ Q None)) ⊢ wp E (Sassign x e) Q.
