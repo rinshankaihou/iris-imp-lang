@@ -586,10 +586,11 @@ Section lemmas.
 
 Context `{!gen_heapGS loc val Σ} `{!envGS val Σ} `{!invGS_gen HasNoLc Σ}.
 
-Lemma guarded_stop F φ : ⊢ guarded F ⊤ (normal_post ⌜φ⌝%I) Kstop ⌜φ⌝%I.
+Lemma guarded_stop F Q : ⊢ guarded F ⊤ (normal_post Q) Kstop Q.
 Proof.
   iSplit; last repeat (iSplit; [iIntros "[]"|]); simpl.
-  - iIntros (?); rewrite wp_sk_unfold /wp_sk_pre; by iLeft.
+  - iIntros "?"; rewrite wp_sk_unfold /wp_sk_pre; iLeft.
+    iSplit => //.
   - iIntros (?) "He".
     rewrite wp_sk_unfold /wp_sk_pre /wp_expr.
     iRight.
