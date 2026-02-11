@@ -37,34 +37,29 @@ Fixpoint no_return (s:stmt) :=
   | _ => True
   end.
   
-Definition wp_pre (wp : coPset -d> stmt -d> (option val → assert) -d> assert) :
-    coPset -d> stmt -d> (option val → assert) -d> assert := λ E s Q,
-  ((⌜s = skip⌝ ∧ |={E}=> Q None) ∨
+Definition wp_pre' (wp : coPset -d> stmt -d> ( assert) -d> assert) :
+    coPset -d> stmt -d> (assert) -d> assert := λ E s Q,
+  ((⌜s = skip⌝ ∧ |={E}=> Q) ∨
    (∀ σ ρ, ⎡state_interp σ ρ⎤ ={E,∅}=∗ ∀ r k, stack_match ρ r k -∗
-    (⌜k=[] -> no_return s⌝) -∗
+    (* (⌜k=[] -> no_return s⌝) -∗ *)
     ∃ s' r' σ' k',
         ⌜step F s (Build_state r σ k) s' (Build_state r' σ' k')⌝ ∗
         ▷ |={∅,E}=> ∃ ρ', ⎡state_interp σ' ρ' ∗ (stack_match ρ' r' k' ∗ wp E s' Q) (stack_depth k')⎤))%I.
 
-Local Instance wp_contractive : Contractive (wp_pre).
+Local Instance wp_pre'_contractive : Contractive (wp_pre').
 Proof.
-  rewrite /wp_pre /= => n wp wp' Hwp E s Q.
-  do 30 (f_contractive || f_equiv). apply Hwp.
+  rewrite /wp_pre' /= => n wp wp' Hwp E s Q.
+  do 29 (f_contractive || f_equiv). apply Hwp.
 Qed.
 
-Local Definition wp_def := fixpoint wp_pre.
-Local Definition wp_aux : seal (@wp_def). Proof. by eexists. Qed.
-Definition wp := wp_aux.(unseal).
-Local Lemma wp_unseal   : wp = @wp_def.
-Proof. rewrite -wp_aux.(seal_eq) //. Qed.
+Local Definition wp_pre_def := fixpoint wp_pre'.
+Local Definition wp_pre_aux : seal (@wp_pre_def). Proof. by eexists. Qed.
+Definition wp_pre := wp_pre_aux.(unseal).
+Local Lemma wp_pre_unseal   : wp_pre = @wp_pre_def.
+Proof. rewrite -wp_pre_aux.(seal_eq) //. Qed.
 
-Lemma wp_unfold E s Q : wp E s Q ⊣⊢ wp_pre wp E s Q.
-Proof. rewrite wp_unseal. apply (fixpoint_unfold wp_pre). Qed.
-
-Lemma wp_skip E Q : Q None ⊢ wp E skip Q.
-Proof.
-  rewrite wp_unfold /wp_pre. iIntros. iLeft. iSplit; done.
-Qed.
+Lemma wp_unfold E s Q : wp_pre E s Q ⊣⊢ wp_pre' wp_pre E s Q.
+Proof. rewrite wp_pre_unseal. apply (fixpoint_unfold wp_pre'). Qed.
 
 Lemma var_e : forall x v σ ρ r k,
   stack_match ρ r k ∗ x ↦v v ∗ ⎡state_interp σ ρ⎤ ⊢ ⌜r !! x = Some v⌝.
@@ -122,57 +117,39 @@ Definition stack_retainer f := assert_of (λ n,
 
 Definition stackframe f vs := ([∗ list] x;v ∈ (get_params f ++ get_locals f);vs, points_to_var x v)%I.
 
-Definition call_assert E f vs x R := (⇑ (stack_retainer f -∗ stackframe f vs -∗
-  wp E (get_body f) ((λ v', ∃ v, ⌜Some v = v'⌝ ∧ stack_retainer f ∗
+(* Definition call_assert E f vs x R := (⇑ (stack_retainer f -∗ stackframe f vs -∗
+  wp_pre E (get_body f) ((λ v', ∃ v, ⌜Some v = v'⌝ ∧ stack_retainer f ∗
     (∃ vs, ⌜stack_size f = length vs⌝ ∧ stackframe f vs) ∗
-    ⇓ ((∃ v, points_to_var x v) ∗ ▷ (points_to_var x v -∗ R))))))%I.
+    ⇓ ((∃ v, points_to_var x v) ∗ ▷ (points_to_var x v -∗ R))))))%I. *)
 
+Definition guarded E Q R :=
+  ((∀ v, Q v -∗ wp_pre E Sskip R) ∧
+   (∀ e, wp_expr E e Q -∗ wp_pre E (Sreturn e) R))%I.
 
-Lemma wp_return E e Q : wp_expr E e (λ v, Q $ Some v) ⊢ wp E (Sreturn e) Q.
+Definition wp_base E s Q := (∀ R, guarded E Q R -∗ wp_pre E s R)%I.
+Definition wp E s (Q: assert) := wp_base E s (λ _, Q).
+
+Instance val_inhabited : Inhabited val.
+Proof. constructor. refine (NumV 0). Qed.
+
+Lemma wp_skip E Q : Q ⊢ wp E skip Q.
 Proof.
-  rewrite !wp_unfold /wp_pre.
-  iIntros "H".
-  iRight.
-  iIntros (σ ρ) "S".
-  rewrite /wp_expr.
-  iMod ("H" with "[$]") as "(% & He & ? & ?)".
-  iApply fupd_mask_intro; first set_solver.
-  iIntros "Hclose" (r k) "s %".
-  iDestruct ("He" with "[s]") as "%".
-  { by iApply stack_env_match. }
-
-  destruct k as [|(?, ?) ?].
-  { specialize (H eq_refl). rewrite /no_return // in H. }
-  iExists skip, _, σ, _.
-  iSplit.
-  { iPureIntro; by econstructor. }
-  iModIntro.
-  iMod "Hclose". iModIntro.
-  iExists _. iFrame.
-  iClear "Hclose".
-  iStopProof.
-  split => ?.
-  monPred.unseal. simpl.
-  rewrite /stack_match /stack_depth /=.
-  destruct (make_stack k) as [le depth] eqn:?.
-  rewrite !monPred_at_sep /stack_level /=.
-  monPred.unseal.
-  iIntros "(? & <- & ?)".
-  
-
-
-
-  
-
-  iApply (stack_match_embed with "[$] [-]").
-
+  iIntros "Q" (R) "[G _]".
+  iApply ("G" $! _ with "[$]").
+  Unshelve. repeat constructor. 
 Qed.
 
+Lemma wp_return E e Q : wp_expr E e Q ⊢ wp_base E (Sreturn e) Q.
+Proof.
+  iIntros "Q" (R) "[_ G]".
+  by iApply "G".
+Qed.
 
 Lemma wp_assign E x e Q : wp_expr E e (λ v, (∃ v0, x ↦v v0) ∗
-  ▷ (x ↦v v -∗ Q None)) ⊢ wp E (Sassign x e) Q.
+  ▷ (x ↦v v -∗ Q)) ⊢ wp E (Sassign x e) Q.
 Proof.
-  rewrite wp_unfold /wp_pre /stack_depth. iIntros "H". iRight.
+  iIntros "H" (R) "[G _]".
+  iEval (rewrite wp_unfold /wp_pre' /stack_depth). iRight.
   iIntros (??) "S".
   rewrite /wp_expr.
   iMod ("H" with "S") as (?) "(He & S & (% & Hx) & Hpost)".
@@ -186,13 +163,15 @@ Proof.
   iMod "Hclose"; iModIntro.
   simpl.
   iApply (stack_match_embed with "[$]").
-  rewrite -wp_skip; by iApply "Hpost".
+  iApply ("G" $! (NumV 0) with "[-]").
+  iApply ("Hpost" with "[$]").
 Qed.
 
-Lemma wp_alloc E x Q : (∃ v0, x ↦v v0) ∗
+(* Lemma wp_alloc E x Q : (∃ v0, x ↦v v0) ∗
   ▷ (∀ l, points_to_var x (LocV l) -∗ l ↦ NumV 0 -∗ Q None) ⊢ wp E (Salloc x) Q.
 Proof.
-  rewrite wp_unfold /wp_pre. iIntros "H". iRight.
+  iIntros "H" (R) "[G _]".
+  iEval (rewrite wp_unfold /wp_pre' /stack_depth). iRight.
   iIntros (??) "S".
   iDestruct "H" as "((% & Hx) & Hpost)".
   iApply fupd_mask_intro; first set_solver; iIntros "Hclose" (??) "Hstack".
@@ -301,7 +280,7 @@ Proof.
     iMod "Hclose" as "_"; iModIntro.
     rewrite Heqb -wp_seq //.
     by iApply (stack_match_embed with "[$]").
-Qed.
+Qed. *)
 
 End wp.
 
