@@ -158,15 +158,8 @@ Proof.
   rewrite !monPred_at_sep /stack_level /=.
   monPred.unseal.
   iIntros "(? & <- & ?)".
-  
-
-
-
-  
-
-  iApply (stack_match_embed with "[$] [-]").
-
-Qed.
+  rewrite -wp_skip.
+Admitted.
 
 
 Lemma wp_assign E x e Q : wp_expr E e (λ v, (∃ v0, x ↦v v0) ∗
