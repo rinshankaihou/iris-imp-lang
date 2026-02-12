@@ -20,11 +20,11 @@ Inductive stmt :=
   | Sif (e : expr) (s1 s2 : stmt)
   | Swhile (e : expr) (s : stmt)
   | Scall (x : string) (f : string) (args : list expr)
-  | Sreturn (e : expr)
+  | Sreturn (x : string) (e : expr) (* synthetic *)
 .
 
 Inductive func :=
-  | Func (func_params : list string) (func_locals : list string) (func_body : stmt).
+  | Func (func_params : list string) (func_locals : list string) (func_body : stmt) (func_ret : expr).
 
 Bind Scope stmt_scope with stmt.
 Bind Scope func_scope with func.
@@ -44,7 +44,7 @@ Proof. solve_decision. Defined.
 Global Instance func_eq_dec' : EqDecision func := func_eq_dec.
 
 (* semantics *)
-Notation stack := (list (gmap string val * string)).
+Notation stack := (list (gmap string val)).
 
 Record state : Type := {
   (* variables and their values on the current stack frame*)
@@ -102,18 +102,18 @@ Inductive step : func_env -> stmt → state → stmt → state → Prop :=
   | WhileS F e s σ v :
     eval_expr' e σ (NumV v) →
     step F (Swhile e s) σ (if Z.eqb v 0 then Sskip else Sseq s (Swhile e s)) σ
-  | CallS F f es σ ps ls s vs rv :
-    F !! f = Some (Func ps ls s) →
+  | CallS F f es σ ps ls s e vs rv :
+    F !! f = Some (Func ps ls s e) →
     length ps = length es →
     eval_exprs' es σ vs →
     let ρ' := bind_vars (ps ++ ls) (vs ++ repeat (NumV 0) (length ls)) in
-    let k' := ((σ.(ρ), rv) :: σ.(k)) in
-    step F (Scall rv f es) σ s 
+    let k' := (σ.(ρ) :: σ.(k)) in
+    step F (Scall rv f es) σ (Sseq s (Sreturn rv e)) 
                 (σ <| ρ := ρ' |> <| k:=k' |>)
   | ReturnS F e σ v ρ m ρ0 r k :
     eval_expr' e σ v →
-    σ = Build_state ρ m ((ρ0, r) :: k) →
-    step F (Sreturn e) σ Sskip 
+    σ = Build_state ρ m (ρ0 :: k) →
+    step F (Sreturn r e) σ Sskip 
               (Build_state (<[r := v]> ρ0) m k)
   .
 

@@ -26,7 +26,7 @@ Notation "e1 + e2" := (BinOp PlusOp e1%E e2%E) : expr_scope.
 
 Notation "'Alloc' x" := (Salloc x%binder) (at level 10) : stmt_scope.
 Notation "e1 <- e2" := (Sstore e1%E e2%E) (at level 80) : stmt_scope.
-Notation "'Return' e" := (Sreturn e%E) (at level 200) : stmt_scope.
+Notation "'Return' x e" := (Sreturn x%binder e%E) (at level 200) : stmt_scope.
 Notation skip := Sskip.
 
 Notation "x <- f ( e )" := (Scall x%binder f%binder (@cons expr e%E nil))
@@ -47,13 +47,13 @@ Notation "s1 ;; s2" := (Sseq s1%S s2%S)
   format "'[' '[hv' '[' s1 ']' ;;  ']' '/' s2 ']'",
   right associativity) : stmt_scope.
 
-Notation "'fn' x <{ ( a ) s }> " := (Func [x%binder] [a%binder] s%S)
-  (at level 200, x,a at level 1, s at level 200,
-  format "'fn'  x  <{ ( a ) '/  ' s '/' }> ") : func_scope.
-Notation "'fn' x y .. z <{ ( a b .. c ) s }> " := (Func (cons x%binder (cons y%binder .. (cons z%binder nil) ..))
-  (cons a%binder (cons b%binder .. (cons c%binder nil) ..)) s%S)
-  (at level 200, x,y,z,a,b,c at level 1, s at level 200,
-  format "'fn'  x  y  ..  z  <{ ( a  b  ..  c ) '/  ' s '/' }> ") : func_scope.
+Notation "'fn' x <{ ( a ) s '|' 'Return' e }> " := (Func [x%binder] [a%binder] s%S e%E)
+  (at level 200, x,a at level 1, s at level 200, e at level 200,
+  format "'fn'  x  <{ ( a ) '/  ' s '|' 'Return' e '/' }> ") : func_scope.
+Notation "'fn' x y .. z <{ ( a b .. c ) s '|' 'Return' e }> " := (Func (cons x%binder (cons y%binder .. (cons z%binder nil) ..))
+  (cons a%binder (cons b%binder .. (cons c%binder nil) ..)) s%S e%E)
+  (at level 200, x,y,z,a,b,c at level 1, s at level 200, e at level 200,
+  format "'fn'  x  y  ..  z  <{ ( a  b  ..  c ) '/  ' s '|' 'Return' e '/' }> ") : func_scope.
 
 Section NotationExample.
 
@@ -80,7 +80,7 @@ Section NotationExample.
             }>;;
             "c" <- "f" (!"x") ;;
             "c" <- !"x" ;;
-            "d" <- "g" (#0, !"x"+!"y", "z") ;;
+            "d" <- "g" (#0, !"x"+!"y", "z") |
             Return #0
         }>.
 

@@ -387,13 +387,6 @@ Proof.
   iIntros "((<- & _) & $)".
 Qed.
 
-Lemma monPred_at_big_sepL2 : forall {I : biIndex} {PROP : bi} {A B} (Φ : A → B → monPred I PROP) (l1 : list A) (l2 : list B) n,
-  (([∗ list] a1;a2 ∈ l1;l2, Φ a1 a2) n) ⊣⊢ ([∗ list] a1;a2 ∈ l1;l2, Φ a1 a2 n).
-Proof.
-  induction l1; destruct l2; simpl; intros; monPred.unseal; try done.
-  rewrite IHl1 //.
-Qed.
-
 Lemma split_stackframe params locals body vs :
   length (params ++ locals) = length vs → NoDup (params ++ locals) →
   let r' := bind_vars (params ++ locals) vs in

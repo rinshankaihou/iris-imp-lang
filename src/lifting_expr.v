@@ -2,6 +2,13 @@ From iris.base_logic.lib Require Export fancy_updates.
 From iris_simp_lang Require Import implang_expr.
 From iris_simp_lang Require Export state_interp.
 
+Lemma monPred_at_big_sepL2 : forall {I : biIndex} {PROP : bi} {A B} (Φ : A → B → monPred I PROP) (l1 : list A) (l2 : list B) n,
+  (([∗ list] a1;a2 ∈ l1;l2, Φ a1 a2) n) ⊣⊢ ([∗ list] a1;a2 ∈ l1;l2, Φ a1 a2 n).
+Proof.
+  induction l1; destruct l2; simpl; intros; monPred.unseal; try done.
+  rewrite IHl1 //.
+Qed.
+
 Section wp_expr.
 
 Context `{!gen_heapGS loc val Σ} `{!envGS val Σ} `{!invGS_gen hlc Σ}.
