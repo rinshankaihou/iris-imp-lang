@@ -68,6 +68,33 @@ Definition guarded E Q k R :=
 
 Definition wp E s Q := (∀ k R, guarded E Q k R -∗ wp_sk E s k R)%I.
 
+Lemma guarded_mono E P Q k R :
+  (Qnormal P -∗ Qnormal Q) ∧
+  (Qbreak P -∗ Qbreak Q) ∧
+  (Qcontinue P -∗ Qcontinue Q) ∧
+  (∀ v, Qreturn P v -∗ Qreturn Q v) ⊢
+  guarded E Q k R -∗ guarded E P k R.
+Proof.
+  rewrite /guarded; iIntros "HPQ H"; iSplit; [|iSplit; [|iSplit]].
+  - by iIntros "HQ"; iApply "H"; iApply "HPQ".
+  - by iIntros "HQ"; iApply "H"; iApply "HPQ".
+  - by iIntros "HQ"; iApply "H"; iApply "HPQ".
+  - iIntros (?) "He"; iApply "H".
+    iApply (wp_expr_mono with "[HPQ] He").
+    iDestruct "HPQ" as "(_ & _ & _ & $)".
+Qed.
+
+Lemma wp_mono E s P Q :
+  (Qnormal P -∗ Qnormal Q) ∧
+  (Qbreak P -∗ Qbreak Q) ∧
+  (Qcontinue P -∗ Qcontinue Q) ∧
+  (∀ v, Qreturn P v -∗ Qreturn Q v) ⊢
+  wp E s P -∗ wp E s Q.
+Proof.
+  rewrite /wp; iIntros "HPQ H" (??) "Hguard".
+  by iApply "H"; iApply (guarded_mono with "HPQ").
+Qed.
+
 Lemma wp_skip E Q : Qnormal Q ⊢ wp E skip Q.
 Proof.
   iIntros "H %% Hguard"; by iApply "Hguard".
@@ -258,6 +285,23 @@ Proof.
     + iDestruct "Hguard" as "(_ & _ & _ & $)".
 Qed.
 
+Lemma wp_while_inv E e s P Q : □ (P -∗ wp_expr E e (λ v, ∃ n, ⌜v = NumV n⌝ ∧
+  ▷ if Z.eqb n 0 then Qnormal Q else wp E s (loop_post Q P))) ⊢
+  P -∗ ▷ (P -∗ wp_expr E e (λ v, ⌜v = NumV 0⌝ → Qnormal Q)) -∗ wp E (Swhile e s) Q.
+Proof.
+  iIntros "#He HP HQ".
+  iLöb as "IH".
+  iApply wp_while.
+  iPoseProof ("He" with "HP") as "H"; iApply (wp_expr_mono with "[-H] H").
+  iIntros (?) "(% & -> & H)".
+  iExists _; iSplit => //; iNext.
+  destruct (n =? 0)%Z eqn: Hn; first done.
+  iApply (wp_mono with "[HQ] H"); simpl.
+  iSplit; [|iSplit; [|iSplit]]; try by iIntros.
+  - iIntros "HP"; iApply ("IH" with "HP HQ").
+  - iIntros "HP"; iApply ("IH" with "HP HQ").
+Qed.
+  
 Lemma cont_to_stack_loop k e s k' : find_loop k = Some (Kwhile e s k') →
   cont_to_stack k = cont_to_stack k'.
 Proof.

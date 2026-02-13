@@ -27,7 +27,7 @@ Notation "e1 + e2" := (BinOp PlusOp e1%E e2%E) : expr_scope.
 Notation " x <a- e " := (Sassign x%binder e%E) (at level 80) : stmt_scope.
 Notation "e1 <s- e2" := (Sstore e1%E e2%E) (at level 80) : stmt_scope.
 Notation "'Alloc' x" := (Salloc x%binder) (at level 10) : stmt_scope.
-Notation "'Return' x e" := (Sreturn x%binder e%E) (at level 200) : stmt_scope.
+Notation "'Return' e" := (Sreturn e%E) (at level 200) : stmt_scope.
 Notation skip := Sskip.
 
 Notation "x <- f ( e )" := (Scall x%binder f%binder (@cons expr e%E nil))
@@ -109,7 +109,7 @@ Section NotationExample.
             "c" <a- (Num 0) ;; (* assignment *)
             "d" <s- #2 ;; (* store to the address (Num 0) *)
             "d" <- "g" (#0, !"x"+!"y", "z") ;;
-            Return "r" (Num 0)
+            Return (Num 0)
         }>.
 
 End NotationExample.

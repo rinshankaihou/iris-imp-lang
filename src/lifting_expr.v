@@ -66,7 +66,15 @@ Fixpoint wp_exprs E es Q : assert :=
   | [] => Q []
   | e :: rest => wp_expr E e (λ v, wp_exprs E rest (λ vs, Q (v :: vs)))
   end.
-  
+
+Lemma wp_expr_mono E e P Q : (∀ v, P v -∗ Q v) ⊢ wp_expr E e P -∗ wp_expr E e Q.
+Proof.
+  rewrite /wp_expr.
+  iIntros "HPQ H" (??) "S".
+  iMod ("H" with "S") as (?) "($ & $ & HP)".
+  by iApply "HPQ".
+Qed.
+
 Lemma wp_val E Q n :  Q (NumV n) ⊢ wp_expr E (Num n) Q.
 Proof.
     rewrite /wp_expr.
