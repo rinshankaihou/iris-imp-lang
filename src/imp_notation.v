@@ -24,8 +24,9 @@ Notation "# l" := (Num l%Z%stdpp) (at level 8, format "# l").
 Notation "! e" := (Load e%E) (at level 9, right associativity) : expr_scope.
 Notation "e1 + e2" := (BinOp PlusOp e1%E e2%E) : expr_scope.
 
+Notation " x <a- e " := (Sassign x%binder e%E) (at level 80) : stmt_scope.
+Notation "e1 <s- e2" := (Sstore e1%E e2%E) (at level 80) : stmt_scope.
 Notation "'Alloc' x" := (Salloc x%binder) (at level 10) : stmt_scope.
-Notation "e1 <- e2" := (Sstore e1%E e2%E) (at level 80) : stmt_scope.
 Notation "'Return' x e" := (Sreturn x%binder e%E) (at level 200) : stmt_scope.
 Notation skip := Sskip.
 
@@ -47,9 +48,34 @@ Notation "s1 ;; s2" := (Sseq s1%S s2%S)
   format "'[' '[hv' '[' s1 ']' ;;  ']' '/' s2 ']'",
   right associativity) : stmt_scope.
 
+Notation "'fn' <{ ( ) s '|' 'Return' e }> " := (Func [] [] s%S e%E)
+  (at level 200, s at level 200, e at level 200,
+  format "'fn' <{ ( ) '/  ' s '|' 'Return' e '/' }> ") : func_scope.
+Notation "'fn' <{ ( a ) s '|' 'Return' e }> " := (Func [] [a%binder] s%S e%E)
+  (at level 200, a at level 1, s at level 200, e at level 200,
+  format "'fn' <{ ( a ) '/  ' s '|' 'Return' e '/' }> ") : func_scope.
+Notation "'fn' <{ ( a b .. c ) s '|' 'Return' e }> " := (Func []
+  (cons a%binder (cons b%binder .. (cons c%binder nil) ..)) s%S e%E)
+  (at level 200, a,b,c at level 1, s at level 200, e at level 200,
+  format "'fn' <{ ( a  b  ..  c ) '/  ' s '|' 'Return' e '/' }> ") : func_scope.
+Notation "'fn' x <{ ( ) s '|' 'Return' e }> " := (Func [x%binder] [] s%S e%E)
+  (at level 200, x at level 1, s at level 200, e at level 200,
+  format "'fn'  x  <{ ( ) '/  ' s '|' 'Return' e '/' }> ") : func_scope.
 Notation "'fn' x <{ ( a ) s '|' 'Return' e }> " := (Func [x%binder] [a%binder] s%S e%E)
   (at level 200, x,a at level 1, s at level 200, e at level 200,
   format "'fn'  x  <{ ( a ) '/  ' s '|' 'Return' e '/' }> ") : func_scope.
+Notation "'fn' x <{ ( a b .. c ) s '|' 'Return' e }> " := (Func (cons x%binder nil)
+  (cons a%binder (cons b%binder .. (cons c%binder nil) ..)) s%S e%E)
+  (at level 200, x,a,b,c at level 1, s at level 200, e at level 200,
+  format "'fn' x <{ ( a  b  ..  c ) '/  ' s '|' 'Return' e '/' }> ") : func_scope.
+Notation "'fn' x y .. z <{ ( ) s '|' 'Return' e }> " := (Func (cons x%binder (cons y%binder .. (cons z%binder nil) ..))
+  nil s%S e%E)
+  (at level 200, x,y,z at level 1, s at level 200, e at level 200,
+  format "'fn'  x  y  ..  z  <{ ( ) '/  ' s '|' 'Return' e '/' }> ") : func_scope.
+Notation "'fn' x y .. z <{ ( a ) s '|' 'Return' e }> " := (Func (cons x%binder (cons y%binder .. (cons z%binder nil) ..))
+  (cons a%binder nil) s%S e%E)
+  (at level 200, x,y,z,a at level 1, s at level 200, e at level 200,
+  format "'fn'  x  y  ..  z  <{ ( a ) '/  ' s '|' 'Return' e '/' }> ") : func_scope.
 Notation "'fn' x y .. z <{ ( a b .. c ) s '|' 'Return' e }> " := (Func (cons x%binder (cons y%binder .. (cons z%binder nil) ..))
   (cons a%binder (cons b%binder .. (cons c%binder nil) ..)) s%S e%E)
   (at level 200, x,y,z,a,b,c at level 1, s at level 200, e at level 200,
@@ -70,7 +96,6 @@ Section NotationExample.
 
     Example fun_ex := 
         fn "x" "y" <{ ( "a" "c" "d" )
-            "x" <- #1 ;;
             Alloc "a" ;;
             If "y" <{ skip }> <{ skip }> ;;
             While "y" <{
@@ -78,8 +103,9 @@ Section NotationExample.
                     If "y" <{ skip }> <{ skip }>
                 }>
             }>;;
-            "c" <- "f" (!"x") ;;
-            "c" <- !"x" ;;
+            "a" <- "f" (!"x") ;;
+            "c" <a- (Num 0) ;; (* assignment *)
+            "d" <s- #2 ;; (* store to the address (Num 0) *)
             "d" <- "g" (#0, !"x"+!"y", "z") |
             Return #0
         }>.
