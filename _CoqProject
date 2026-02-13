@@ -25,6 +25,7 @@ src/lifting_expr.v
 src/lifting_cont.v
 src/lifting.v
 
+src/examples/implang_eg.v
 src/examples/swap.v
 src/examples/spawn.v
 src/examples/par.v
