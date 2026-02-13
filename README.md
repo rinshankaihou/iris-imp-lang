@@ -1,4 +1,4 @@
-# simp_lang
+# iris-implang
 
 [![CI](https://github.com/tchajed/iris-simp-lang/actions/workflows/build.yml/badge.svg)](https://github.com/tchajed/iris-simp-lang/actions/workflows/build.yml)
 
