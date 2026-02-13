@@ -1,0 +1,34 @@
+opam-version: "2.0"
+maintainer: "kdu9@uic.edu, mansky1@uic.edu"
+version: "dev"
+
+homepage: "https://github.com/rinshankaihou/iris-imp-lang"
+dev-repo: "git+https://github.com/rinshankaihou/iris-imp-lang.git"
+bug-reports: "https://github.com/rinshankaihou/iris-imp-lang/issues"
+license: "MIT"
+
+synopsis: "Simple imperative language instantiated in Iris"
+description: """
+A simple imperative language instantiated in Iris, featuring
+stack variables, named functions, while loop with break/continue.
+Most Iris instances for imperative languages encode imperative features in a functional
+language; we keep these features in the syntax and model them directly.
+"""
+
+depends: [
+  "coq" {>= "8.20.0"}
+  "coq-iris" { = "4.3.0"}
+]
+
+build: [make "-j%{jobs}%"]
+install: [make "install"]
+
+tags: [
+  "category:Miscellaneous"
+  "keyword:iris"
+  "logpath:iris_implang"
+]
+
+authors: [
+  "Ke Du, William Mansky"
+]
