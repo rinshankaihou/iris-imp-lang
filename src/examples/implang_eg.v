@@ -13,8 +13,10 @@ Definition F : func_env :=
 
 Definition call_incr : stmt :=
     Alloc "a";;
+    (* store #2 to the location stored in variable "a" *)
     "a" <s- #2 ;;
-    "r" <- "incr" (!"a").
+    (* load the stored value, increment the value, stores return value in variable "r" *)
+    "r" <- "incr" (!"a"). 
 
 Section WPExample.
 
@@ -38,6 +40,7 @@ Section WPExample.
     Global Instance down1_proper_entail : Proper (flip bi_entails ==> flip bi_entails) down1.
     Proof. split => ? /=. apply H. Qed.
 
+    (* spec for function incr *)
     Lemma wp_incr E z' z:
         "r" ↦v NumV z'
         ⊢ call_assert F E incr [NumV z%Z] "r" ("r" ↦v NumV (z+1)).
