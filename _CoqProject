@@ -24,6 +24,7 @@ src/state_interp.v
 src/lifting_expr.v
 src/lifting_cont.v
 src/lifting.v
+src/modality_instances.v
 
 src/examples/implang_eg.v
 src/examples/swap.v

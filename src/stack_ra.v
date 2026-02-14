@@ -331,6 +331,24 @@ Proof.
   by apply monPred_persistent; intros; simpl; apply monPred_at_persistent.
 Qed.
 
+Lemma up1_persistently P : up1 (<pers> P) ⊣⊢ <pers> (up1 P).
+Proof.
+  intros. split => n.
+  by rewrite /up1; monPred.unseal.
+Qed.
+
+Lemma up1_affinely P : up1 (<affine> P) ⊣⊢ <affine> (up1 P).
+Proof.
+  intros. split => n. 
+  rewrite /up1 /= !monPred_at_affinely //.
+Qed.
+
+Lemma up1_intuitionistically P : up1 (□ P) ⊣⊢ □ (up1 P).
+Proof.
+  intros.
+   rewrite /bi_intuitionistically up1_affinely up1_persistently //.
+Qed.
+
 Global Instance down1_persistent P `{!Persistent P} : Persistent (down1 P).
 Proof.
   by apply monPred_persistent; intros; simpl; apply monPred_at_persistent.
