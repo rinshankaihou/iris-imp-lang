@@ -26,7 +26,7 @@ Section modalities.
   Qed.
 
   Lemma modality_up1_mixin :
-    modality_mixin (up1 ) (MIEnvTransform IntoUp1) (MIEnvTransform IntoUp1).
+    modality_mixin up1 (MIEnvTransform IntoUp1) (MIEnvTransform IntoUp1).
   Proof.
     split; simpl;
     eauto using equiv_entails_1_2, up1_objective, up1_and, up1_mono, up1_sep, up1_intuitionistically with typeclass_instances.
