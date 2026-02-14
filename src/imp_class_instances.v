@@ -7,6 +7,16 @@ Import bi.
 Section class_instances_assert_of.
   Context `{!envGS Ty Σ}.
 
+  #[local] Example from_modal_up1_test P Q : ⇑ P ∗ ⇑ Q ⊢ ⇑ (P ∗ Q).
+  Proof. iIntros "[? ?]". Fail iModIntro. Abort.
+
+  Global Instance from_modal_up1 P :
+    FromModal True modality_up1 (⇑ P) (⇑ P) P | 2.
+  Proof. by rewrite /FromModal. Qed.
+
+  #[local] Example from_modal_up1_test P Q : ⇑ P ∗ ⇑ Q ⊢ ⇑ (P ∗ Q).
+  Proof. iIntros "[? ?]". iModIntro. iFrame. Qed.
+
   Lemma bi_intuitionistically_if_assert_of p (P : nat → (iPropI Σ)) :
     □?p (assert_of (λ v, P v)) ⊣⊢ assert_of (λ v, □?p (P v)).
   Proof. split => ?. rewrite monPred_at_intuitionistically_if //. Qed.
