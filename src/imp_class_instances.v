@@ -7,16 +7,6 @@ Import bi.
 Section class_instances_assert_of.
   Context `{!envGS Ty Σ}.
 
-  #[local] Example from_modal_up1_test P Q : ⇑ P ∗ ⇑ Q ⊢ ⇑ (P ∗ Q).
-  Proof. iIntros "[? ?]". Fail iModIntro. Abort.
-
-  Global Instance from_modal_up1 P :
-    FromModal True modality_up1 (⇑ P) (⇑ P) P | 2.
-  Proof. by rewrite /FromModal. Qed.
-
-  #[local] Example from_modal_up1_test P Q : ⇑ P ∗ ⇑ Q ⊢ ⇑ (P ∗ Q).
-  Proof. iIntros "[? ?]". iModIntro. iFrame. Qed.
-
   Lemma bi_intuitionistically_if_assert_of p (P : nat → (iPropI Σ)) :
     □?p (assert_of (λ v, P v)) ⊣⊢ assert_of (λ v, □?p (P v)).
   Proof. split => ?. rewrite monPred_at_intuitionistically_if //. Qed.
@@ -54,6 +44,16 @@ End class_instances_assert_of.
 
 Section class_instances_up1_down1.
   Context `{!envGS Ty Σ}.
+
+  #[local] Example from_modal_up1_test P Q : ⇑ P ∗ ⇑ Q ⊢ ⇑ (P ∗ Q).
+  Proof. iIntros "[? ?]". Fail iModIntro. Abort.
+
+  Global Instance from_modal_up1 P :
+    FromModal True modality_up1 (⇑ P) (⇑ P) P | 2.
+  Proof. by rewrite /FromModal. Qed.
+
+  #[local] Example from_modal_up1_test P Q : ⇑ P ∗ ⇑ Q ⊢ ⇑ (P ∗ Q).
+  Proof. iIntros "[? ?]". iModIntro. iFrame. Qed.
   
   Global Instance from_sep_up1 : forall P Q, FromSep (⇑ (P ∗ Q))%I (⇑ P) (⇑ Q).
   Proof. intros; rewrite /FromSep -up1_sep //. Qed.
@@ -76,6 +76,9 @@ Section class_instances_up1_down1.
       iIntros "[x y]"; by iApply "x". 
   Qed.
   
+  Global Instance from_wand_up1 P Q : FromAnd (⇑ P ∧ ⇑ Q) (⇑ P) (⇑ Q).
+  Proof. rewrite /FromAnd up1_and //. Qed.
+
   Global Instance into_and_up1 p P Q1 Q2 :
     IntoAnd p P Q1 Q2 → IntoAnd p (⇑ P)%I (⇑ Q1)%I (⇑ Q2)%I. 
   Proof. rewrite /IntoAnd /up1 => HP.
@@ -83,6 +86,39 @@ Section class_instances_up1_down1.
     apply assert_of_mono. intros v.
     rewrite -monPred_at_and -!monPred_at_intuitionistically_if HP //.
   Qed.
+
+  Global Instance into_sep_up1 P Q R:
+    IntoSep P Q R → IntoSep (⇑ P) (⇑ Q) (⇑ R).
+  Proof. rewrite /IntoSep => ->. split => i. rewrite -up1_sep //. Qed.
+
+  Global Instance from_or_up1 P Q R:
+    FromOr P Q R → FromOr (⇑ P) (⇑ Q) (⇑ R).
+  Proof. rewrite /FromOr => <-. monPred.unseal. done. Qed.
+
+  Global Instance into_or_up1 P Q R:
+    IntoOr P Q R → IntoOr (⇑ P) (⇑ Q) (⇑ R).
+  Proof. rewrite /IntoOr => ->. monPred.unseal. done. Qed.
+
+  Global Instance from_exist_up1 {A} P (Φ : A → assert) :
+    FromExist P Φ → FromExist (⇑ P) (λ a, ⇑ (Φ a))%I.
+  Proof. rewrite /FromExist => <-. split => ?. simpl.
+    rewrite monPred_at_exist /= monPred_at_exist //.
+  Qed.
+
+  Global Instance into_exist_up1 {A} P (Φ : A → assert) name:
+    IntoExist P Φ name → IntoExist (⇑ P) (λ a, ⇑ (Φ a))%I name.
+  Proof. rewrite /IntoExist => ->. split => ?. simpl.
+    rewrite monPred_at_exist /= monPred_at_exist //.
+  Qed.
+
+  Global Instance into_forall_up1 {A} P (Φ : A → assert) :
+    IntoForall P Φ → IntoForall (⇑ P) (λ a, ⇑ (Φ a))%I.
+  Proof. rewrite /IntoForall=> HP. by rewrite HP up1_forall. Qed.
+
+  Global Instance from_forall_persistently {A} P (Φ : A → assert) name :
+    FromForall P Φ name → FromForall (⇑ P) (λ a, ⇑ (Φ a))%I name.
+  Proof. rewrite /FromForall=> <-. by rewrite up1_forall. Qed.
+
 
   (* what does FromAssumption/KnownLFromAssumption etc. do? *)
 

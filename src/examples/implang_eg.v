@@ -35,11 +35,6 @@ Section WPExample.
     Ltac solve_no_dup :=
         repeat constructor; solve_not_in.
 
-    Global Instance up1_proper_entails : Proper (flip bi_entails ==> flip bi_entails) up1.
-    Proof. split => ? /=. apply H. Qed.
-    Global Instance down1_proper_entail : Proper (flip bi_entails ==> flip bi_entails) down1.
-    Proof. split => ? /=. apply H. Qed.
-
     (* spec for function incr *)
     Lemma wp_incr E z' z:
         "r" ↦v NumV z'

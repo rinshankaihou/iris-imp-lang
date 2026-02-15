@@ -288,6 +288,18 @@ Proof.
   by rewrite /down1; monPred.unseal.
 Qed.
 
+Lemma up1_or : forall P Q, up1 P ∨ up1 Q ⊣⊢ up1 (P ∨ Q).
+Proof.
+  intros. split => n.
+  by rewrite /up1; monPred.unseal.
+Qed.
+
+Lemma down1_or : forall P Q, down1 P ∨ down1 Q ⊣⊢ down1 (P ∨ Q).
+Proof.
+  intros. split => n.
+  by rewrite /down1; monPred.unseal.
+Qed.
+
 Lemma up1_forall : forall {A} P, up1 (∀ x : A, P x) ⊣⊢ ∀ x, up1 (P x).
 Proof.
   intros. split => n.
@@ -377,6 +389,11 @@ Proof.
   intros. split => n.
   by rewrite /down1; monPred.unseal.
 Qed.
+
+Global Instance up1_proper_entails : Proper (flip bi_entails ==> flip bi_entails) up1.
+Proof. split => ? /=. apply H. Qed.
+Global Instance down1_proper_entail : Proper (flip bi_entails ==> flip bi_entails) down1.
+Proof. split => ? /=. apply H. Qed.
 
 End env.
 
