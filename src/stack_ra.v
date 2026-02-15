@@ -338,15 +338,16 @@ Proof.
   iSplit; iIntros "H" (? <-); by iApply "H".
 Qed.
 
-Global Instance up1_persistent P `{!Persistent P} : Persistent (up1 P).
-Proof.
-  by apply monPred_persistent; intros; simpl; apply monPred_at_persistent.
-Qed.
-
 Lemma up1_persistently P : up1 (<pers> P) ⊣⊢ <pers> (up1 P).
 Proof.
   intros. split => n.
   by rewrite /up1; monPred.unseal.
+Qed.
+
+Lemma down1_persistently P : down1 (<pers> P) ⊣⊢ <pers> (down1 P).
+Proof.
+  intros. split => n.
+  by rewrite /down1; monPred.unseal.
 Qed.
 
 Lemma up1_affinely P : up1 (<affine> P) ⊣⊢ <affine> (up1 P).
@@ -355,10 +356,27 @@ Proof.
   rewrite /up1 /= !monPred_at_affinely //.
 Qed.
 
+Lemma down1_affinely P : down1 (<affine> P) ⊣⊢ <affine> (down1 P).
+Proof.
+  intros. split => n. 
+  rewrite /down1 /= !monPred_at_affinely //.
+Qed.
+
 Lemma up1_intuitionistically P : up1 (□ P) ⊣⊢ □ (up1 P).
 Proof.
   intros.
    rewrite /bi_intuitionistically up1_affinely up1_persistently //.
+Qed.
+
+Lemma down1_intuitionistically P : down1 (□ P) ⊣⊢ □ (down1 P).
+Proof.
+  intros.
+   rewrite /bi_intuitionistically down1_affinely down1_persistently //.
+Qed.
+
+Global Instance up1_persistent P `{!Persistent P} : Persistent (up1 P).
+Proof.
+  by apply monPred_persistent; intros; simpl; apply monPred_at_persistent.
 Qed.
 
 Global Instance down1_persistent P `{!Persistent P} : Persistent (down1 P).
