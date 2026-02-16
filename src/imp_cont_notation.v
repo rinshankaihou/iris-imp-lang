@@ -23,6 +23,14 @@ Notation "# l" := (Num l%Z%stdpp) (at level 8, format "# l").
 
 Notation "! e" := (Load e%E) (at level 9, right associativity) : expr_scope.
 Notation "e1 + e2" := (BinOp PlusOp e1%E e2%E) : expr_scope.
+Notation "e1 < e2" := (BinOp LtOp e1%E e2%E) : expr_scope.
+Notation "e1 <= e2" := (BinOp LeOp e1%E e2%E) : expr_scope.
+Notation "e1 > e2" := (BinOp GtOp e1%E e2%E) : expr_scope.
+Notation "e1 >= e2" := (BinOp GeOp e1%E e2%E) : expr_scope.
+Notation "e1 = e2" := (BinOp EqOp e1%E e2%E) : expr_scope.
+Notation "e1 ≠ e2" := (BinOp NeqOp e1%E e2%E) : expr_scope.
+Notation "e1 && e2" := (BinOp AndOp e1%E e2%E) : expr_scope.
+Notation "e1 || e2" := (BinOp OrOp e1%E e2%E) : expr_scope.
 
 Notation " x <a- e " := (Sassign x%binder e%E) (at level 80) : stmt_scope.
 Notation "e1 <s- e2" := (Sstore e1%E e2%E) (at level 80) : stmt_scope.
