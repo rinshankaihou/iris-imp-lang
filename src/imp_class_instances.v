@@ -1,4 +1,4 @@
-From iris_simp_lang Require Import stack_ra .
+From iris_simp_lang Require Import stack_ra.
 From iris_simp_lang Require Export modality_instances.
 From iris.proofmode Require Export proofmode.
 From iris.base_logic Require Export iprop.
@@ -99,10 +99,10 @@ Section class_instances_up1_down1.
       iIntros "[x y]"; by iApply "x". 
   Qed.
   
-  Global Instance from_wand_up1 P Q : FromAnd (⇑ P ∧ ⇑ Q) (⇑ P) (⇑ Q).
-  Proof. rewrite /FromAnd up1_and //. Qed.
-  Global Instance from_wand_down1 P Q : FromAnd (⇓ P ∧ ⇓ Q) (⇓ P) (⇓ Q).
-  Proof. rewrite /FromAnd down1_and //. Qed.
+  Global Instance from_wand_up1 P Q : FromWand (⇑ (P -∗ Q))%I (⇑ P) (⇑ Q).
+  Proof. rewrite /FromWand -up1_wand //. Qed.
+  Global Instance from_wand_down1 P Q : FromWand (⇓ (P -∗ Q))%I (⇓ P) (⇓ Q).
+  Proof. rewrite /FromWand -down1_wand //. Qed.
 
   Global Instance into_and_up1 p P Q1 Q2 :
     IntoAnd p P Q1 Q2 → IntoAnd p (⇑ P)%I (⇑ Q1)%I (⇑ Q2)%I. 
