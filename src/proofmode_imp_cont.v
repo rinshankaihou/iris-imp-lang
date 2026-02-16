@@ -35,7 +35,8 @@ Lemma tac_wp_expr_var `{!gen_heapGS loc val Σ} `{!envGS val Σ} `{!invGS_gen hl
   envs_lookup i Δ = Some (b, x ↦v v)%I →
   envs_entails Δ (Q v) →
   envs_entails Δ (wp_expr E (Var x) Q).
-Proof.  rewrite envs_entails_unseal=> ? Hi.
+Proof.
+  rewrite envs_entails_unseal=> ? Hi.
   iIntros "Henv".
   iDestruct (envs_lookup_split with "Henv") as "[Hl Henv]"; first by eauto.
   rewrite -wp_var Hi.
