@@ -181,7 +181,7 @@ Lemma wp_exprs_app E es Q σ ρ : wp_exprs E es Q -∗ ⎡state_interp σ ρ⎤ 
 Proof.
   iIntros "Hes S"; iInduction es as [|e es] "IH" forall (Q); simpl.
   - iFrame. iIntros "!> %% ?"; iPureIntro; constructor.
-  - rewrite /wp_expr.
+  - wp_expr.unseal.
     iMod ("Hes" with "S") as (?) "(He & S & Hes)".
     iMod ("IH" with "Hes S") as (?) "(Hes & $ & $)".
     iIntros "!> %% Henv".
@@ -309,7 +309,7 @@ Proof.
   iApply wp_seq. iApply wp_mono; last by iApply ("H" with "Hret Hframe").
   rewrite monPred_objectively_unfold; iIntros "!>" (?); monPred.unseal.
   iIntros (??) "H !>".
-  rewrite wp_unfold /wp_pre /wp_expr; monPred.unseal.
+  rewrite wp_unfold /wp_pre; wp_expr.unseal; monPred.unseal.
   iRight; iStopProof; do 8 f_equiv.
   iIntros ">(% & He & (Hσ & Hρ) & Hret & Hframe & (% & Hx) & H)".
   iDestruct (stack_ra.var_e with "[$Hx $Hρ]") as %?.
@@ -355,7 +355,7 @@ Proof.
   iIntros "H".
   rewrite wp_unfold /wp_pre /stack_depth. iRight.
   iIntros (??) "S".
-  rewrite /wp_expr.
+  wp_expr.unseal.
   iMod ("H" with "S") as (?) "(He & S & (% & Hx) & Hpost)".
   iApply fupd_mask_intro; first set_solver; iIntros "Hclose" (r k) "Hstack".
   iDestruct (var_e with "[$Hx $S $Hstack]") as %?.
@@ -396,8 +396,9 @@ Proof.
   iIntros "H".
   rewrite wp_unfold /wp_pre. iRight.
   iIntros (??) "S".
-  rewrite /wp_expr.
+  wp_expr.unseal.
   iMod ("H" with "S") as (?) "(He2 & S & H)".
+  wp_expr.unseal.
   iMod ("H" with "S") as (?) "(He1 & S & % & % & -> & Hl & Hpost)".
   iApply fupd_mask_intro; first set_solver; iIntros "Hclose" (??) "Hstack".
   iDestruct (state_interp_load with "S Hl") as %?.
@@ -418,7 +419,7 @@ Proof.
   iIntros "H".
   rewrite wp_unfold /wp_pre. iRight.
   iIntros (??) "S".
-  rewrite /wp_expr.
+  wp_expr.unseal.
   iMod ("H" with "S") as (?) "(He & S & % & -> & H)".
   iApply fupd_mask_intro; first set_solver; iIntros "Hclose" (??) "Hstack".
   iDestruct ("He" with "[Hstack]") as %?; first by iApply stack_env_match.
@@ -436,7 +437,7 @@ Proof.
   iIntros "H".
   rewrite {2}[wp _ (Swhile _ _) _]wp_unfold /wp_pre. iRight.
   iIntros (??) "S".
-  rewrite /wp_expr.
+  wp_expr.unseal.
   iMod ("H" with "S") as (?) "(He & S & % & -> & H)".
   iApply fupd_mask_intro; first set_solver; iIntros "Hclose" (??) "Hstack".
   iDestruct ("He" with "[Hstack]") as %?; first by iApply stack_env_match.

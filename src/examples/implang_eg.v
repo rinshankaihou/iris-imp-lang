@@ -46,19 +46,15 @@ Section WPExample.
         rewrite -wp_assign -wp_binop -wp_var.
         iFrame. iIntros "x".
         rewrite -wp_val /=. iFrame.
-        iIntros "!> x" (? ?) "S". iModIntro.
-        iExists _.
-        rewrite -wp_var.
-        rewrite -up1_sep. iFrame.
-        rewrite up1_wand. iIntros "x".
-        rewrite -!up1_sep up1_exist up1_down1. iFrame.
+        iIntros "!> x".
+        rewrite -wp_var. iFrame. iIntros "x".
+        iFrame.
         iSplitL "x".
         {
-            iExists (cons _ nil). simpl.
-            iStopProof; apply up1_mono.
-            iIntros; iSplit; [done | iFrame].
+            iExists (cons _ nil). iSplit; first done.
+            rewrite /stackframe /=. iFrame.
         }
-        iIntros "!> $".
+        iIntros "!> !> $".
     Qed.
 
     Lemma wp_call_incr E :

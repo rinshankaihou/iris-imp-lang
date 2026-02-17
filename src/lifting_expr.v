@@ -156,3 +156,8 @@ Proof.
 Qed.
 
 End wp_expr.
+
+(* export the unseal tactic *)
+Module Import wp_expr.
+  Ltac unseal := rewrite !wp_expr_unfold /wp_expr_def /=.
+End wp_expr.
