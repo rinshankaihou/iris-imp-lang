@@ -79,9 +79,11 @@ Section spec.
     iSteps.
     simpl.
 
-    set (∃ l_m lv_a lv_b v, ⌜lv = lv_a++lv_b ⌝ ∧ 
-          l ↦ₛ lv_a l_m ∗ l_m ↦ₗ lv_b ∗ (* split arr into two parts *)
-          "l" ↦v (LocV l_m) ∗ "v" ↦v v ∗ "min" ↦v (NumV (min_positive_r lv_a)) ∗ (* "min" always store min of the first part*)
+    set (∃ l_m lv_a lv_b v,
+          (* split arr into two parts *)
+          ⌜lv = lv_a++lv_b ⌝ ∧ l ↦ₛ lv_a l_m ∗ l_m ↦ₗ lv_b ∗ 
+          (* "min" always store min of the first part*)
+          "l" ↦v (LocV l_m) ∗ "v" ↦v v ∗ "min" ↦v (NumV (min_positive_r lv_a)) ∗
           stack_retainer min_positive ∗ (∃ _z, ⇓ ("r" ↦v _z)))%I%Z as inv.
     wp_apply (wp_while_inv  _ _ _ _ inv with "[] [-]" ) ; simpl.
     {
@@ -107,7 +109,7 @@ Section spec.
     iSteps.
     iRename select (_) into "inv".
     iDestruct "inv" as "(%l_m & %lv_a & %lv_b & %v & -> & arr_a & arr_b & l & v & min & retainer & (%_z' & r))".
-    (* TODO need to show l_m=0 or lv_b=[] *)
+    (* TODO need to show that it has traversed through the whole list, i.e. l_m=0 or lv_b=[] *)
     iSteps.
   Admitted.
 
