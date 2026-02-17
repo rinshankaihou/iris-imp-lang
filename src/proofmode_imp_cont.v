@@ -144,69 +144,20 @@ Tactic Notation "wp_apply" open_constr(lem) "as" "(" simple_intropattern(x1)
     constr(pat) :=
   wp_apply lem; last iIntros ( x1 x2 x3 x4 x5 x6 x7 x8 x9 x10 ) pat.
 
-Tactic Notation "wp_assign" :=
-  lazymatch goal with
-  | |- envs_entails _ (wp _ ?E ?s ?Q) =>
-    first
-      [reshape_seq; iApply wp_assign
-      |fail 1 "wp_assign: cannot find 'Sassign' in" s];
-    [pm_reduce; wp_finish]
-  | _ => fail "wp_assign: not a 'wp'"
-  end.
-
-Tactic Notation "wp_store" :=
-  lazymatch goal with
-  | |- envs_entails _ (wp _ ?E ?s ?Q) =>
-    first
-      [reshape_seq; iApply wp_store
-      |fail 1 "wp_store: cannot find 'Sstore' in" s];
-    [pm_reduce; wp_finish]
-  | _ => fail "wp_store: not a 'wp'"
-  end.
-
-Tactic Notation "wp_break" :=
-  lazymatch goal with
-  | |- envs_entails _ (wp _ ?E ?s ?Q) =>
-    first
-      [reshape_seq; iApply wp_break
-      |fail 1 "wp_break: cannot find 'Sbreak' in" s]
-  | _ => fail "wp_break: not a 'wp'"
-  end.
-
-Tactic Notation "wp_continue" :=
-  lazymatch goal with
-  | |- envs_entails _ (wp _ ?E ?s ?Q) =>
-    first
-      [reshape_seq; iApply wp_continue
-      |fail 1 "wp_continue: cannot find 'Scontinue' in" s]
-  | _ => fail "wp_continue: not a 'wp'"
-  end.
-
-Tactic Notation "wp_return" :=
-  lazymatch goal with
-  | |- envs_entails _ (wp _ ?E ?s ?Q) =>
-    first
-      [reshape_seq; iApply wp_return
-      |fail 1 "wp_return: cannot find 'Sreturn' in" s];
-    [pm_reduce; wp_finish]
-  | _ => fail "wp_return: not a 'wp'"
-  end.
-
 Ltac iStep :=
   lazymatch goal with
-  | |- envs_entails _ (wp _ ?E (Sseq ?s _) ?Q) =>
+  | |- envs_entails _ (wp _ ?E ?s ?Q) =>
     match s with
-    | Sassign _ _ => wp_assign
-    | Sstore _ _ => wp_store
-    | Sbreak => wp_break
-    | Scontinue => wp_continue
-    | Sreturn _ => wp_return
+    | Sseq _ _ => reshape_seq; iNext; iStep
+    | Sassign _ _ => iApply wp_assign; pm_reduce; wp_finish
+    | Sstore _ _ => iApply wp_store; pm_reduce; wp_finish
+    | Sbreak => iApply wp_break
+    | Scontinue => iApply wp_continue
+    | Sreturn _ => iApply wp_return; pm_reduce; wp_finish
+    | Sif _ _ _ => iApply wp_if
+    | Sskip => iApply wp_skip
+    | Scall _ _ _ => iApply wp_call; pm_reduce
     | ?s => fail 1 "iStep: does not support (Seq " s " _)"
-    end
-  | |- envs_entails _ (wp _ ?E ?s _) =>
-    match s with
-    | Sreturn _ => iApply wp_return
-    | ?s => fail 2 "iStep: does not support" s
     end
   | |- envs_entails _ (wp_expr _ _ _) =>
     wp_finish
