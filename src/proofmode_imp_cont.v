@@ -75,7 +75,7 @@ Ltac wp_expr_head :=
   lazymatch goal with
   | |- envs_entails _ (wp_expr _ (Num _) _) => iApply wp_val
   | |- envs_entails _ (wp_expr _ (Var _) _) => wp_var
-  | |- envs_entails _ (wp_expr _ (UnOp DerefOp _) _) => iApply tac_wp_deref
+  | |- envs_entails _ (wp_expr _ (UnOp DerefOp _) _) => eapply tac_wp_deref
   | |- envs_entails _ (wp_expr _ (BinOp _ _ _) _) => iApply wp_binop
   end.
   
