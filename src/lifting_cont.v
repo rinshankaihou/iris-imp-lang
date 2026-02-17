@@ -1,5 +1,5 @@
 From iris.base_logic Require Import gen_heap.
-From iris_simp_lang Require Import imp_cont_notation stack_ra lifting_expr.
+From iris_simp_lang Require Import imp_cont_notation stack_ra lifting_expr imp_class_instances.
 
 Section wp.
 
@@ -425,11 +425,11 @@ Proof.
   { rewrite lookup_insert_ne //.
     eapply stack_depth_max; eauto. }
   iModIntro.
-  rewrite -!up1_sep.
   iPoseProof (stack_level_up with "Hl") as "$".
-  rewrite -up1_objective; iSplit; first done.
+  iModIntro.
+  iSplit; first done.
   iStopProof; split => ?; rewrite /stack_level; monPred.unseal; rewrite monPred_at_intuitionistically /=.
-  iIntros "((<- & _) & $)".
+  iIntros "((-> & ->) & $)".
 Qed.
 
 Lemma split_stackframe params locals body vs :
@@ -528,9 +528,7 @@ Proof.
   iDestruct "Hpost" as "(Hx & Hpost)".
   iAssert (⇓ |==> ∃ ρ', stack_match ρ' (<[x:=v]> r) k ∗ x ↦v v ∗ ⎡state_interp σ ρ'⎤)%I
     with "[S Hx Hstack]" as "H'".
-  { rewrite (down1_objective ⎡_⎤%I).
-    iCombine "Hstack Hx S" as "H"; rewrite !down1_sep; iApply (down1_mono with "H").
-    iIntros "(? & (% & ?) & ?)"; iApply var_update; iFrame. }
+  { iModIntro. iDestruct "Hx" as "[% ?]". iApply var_update; iFrame. }
   rewrite down1_bupd; iMod "H'".
   rewrite down1_exist; iDestruct "H'" as (?) "H'".
   iMod "Hclose"; iModIntro.
