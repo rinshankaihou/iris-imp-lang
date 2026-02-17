@@ -46,7 +46,8 @@ Lemma tac_wp_deref `{!gen_heapGS loc val Σ} `{!envGS val Σ} `{!invGS_gen hlc �
   envs_entails Δ (wp_expr E e (λ v0,
     match v0 with
     | LocV l => ∃ v, l ↦ v ∗ (l ↦ v -∗ Q v) 
-    | _ => False end))%I →
+    (* | _ => False  *)
+    end))%I →
   envs_entails Δ (wp_expr E (UnOp DerefOp e) Q).
 Proof.
   rewrite -wp_load envs_entails_unseal => ->.
@@ -203,7 +204,10 @@ Ltac iStep :=
     | ?s => fail 1 "iStep: does not support (Seq " s " _)"
     end
   | |- envs_entails _ (wp _ ?E ?s _) =>
-    fail 2 "iStep: does not support" s
+    match s with
+    | Sreturn _ => iApply wp_return
+    | ?s => fail 2 "iStep: does not support" s
+    end
   | |- envs_entails _ (wp_expr _ _ _) =>
     wp_finish
   | _ => fail "iStep: not a 'wp' or 'wp_expr'" 

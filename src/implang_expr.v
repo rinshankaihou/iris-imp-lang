@@ -58,8 +58,9 @@ Definition Bool (b:bool) : expr := Num (if b then 1 else 0).
 Definition loc := Z.
 
 Inductive val :=
-  | NumV (n : Z)
-  | LocV (l : loc).
+  | NumV (n : Z).
+  (* | LocV (l : loc) *)
+Notation LocV := NumV. (* for now, we just use numbers as locations *)
 
 Lemma val_eq_dec (v1 v2 : val) : Decision (v1 = v2).
 Proof. solve_decision. Defined.
@@ -70,7 +71,7 @@ Definition BoolV (b:bool) : val := NumV (if b then 1 else 0).
 Definition toBoolV (v:val) : option bool :=
   match v with
   | NumV n => Some (if n =? 0 then false else true)
-  | _ => None
+  (* | _ => None *)
   end.
 
 (** Statements and functions *)
@@ -96,7 +97,7 @@ Definition numv_bool_eval (v1 v2 : val) (op: bin_op): option val :=
               end
     | _ => None
     end
-  | _, _ => None
+  (* | _, _ => None *)
   end.
 
 Definition bin_op_eval (op: bin_op) (v1 v2: val) : option val :=
@@ -104,9 +105,9 @@ Definition bin_op_eval (op: bin_op) (v1 v2: val) : option val :=
   | PlusOp => match v1, v2 with
               | NumV n1, NumV n2 =>
                 Some (NumV (n1 + n2))
-              | LocV n1, NumV n2 | NumV n1, LocV n2 =>
+              (* | LocV n1, NumV n2 | NumV n1, LocV n2 =>
                 Some (LocV (n1 + n2))
-              | _, _ => None
+              | _, _ => None *)
               end
   | _ => numv_bool_eval v1 v2 op
   end.
@@ -127,7 +128,7 @@ Inductive eval_expr : expr → gmap string val → gmap loc val → val → Prop
     bin_op_eval op v1 v2 = Some v →
     eval_expr (BinOp op e1 e2) ρ m v
   | EvalLoad e v l ρ m :
-    eval_expr e ρ m (LocV l) →
+    eval_expr e ρ m (NumV l) →
     m !! l = Some v →
     eval_expr (UnOp DerefOp e) ρ m v
   .
@@ -143,9 +144,9 @@ Fixpoint exec_eval_expr (e : expr) (ρ : gmap string val) (m : gmap loc val) : o
   | UnOp op e1 =>
     v1 ← exec_eval_expr e1 ρ m ;
     match op, v1 with
-    | DerefOp, LocV l =>
+    | DerefOp, NumV l =>
       m !! l
-    | _, _ => None
+    (* | _, _ => None *)
     end
   end.
 
