@@ -191,6 +191,13 @@ Section class_instances_up1_down1.
     IntoPure P φ → IntoPure (⇓ P) φ.
   Proof. rewrite /IntoPure => ->. rewrite -down1_objective //. Qed.
 
+  Global Instance frame_up1 p P Q R :
+    Frame p P Q R → Frame p (⇑ P) (⇑ Q) (⇑ R).
+  Proof. rewrite /Frame => <-. rewrite -up1_sep up1_intuitionistically_if //. Qed.
+  Global Instance frame_down1 p P Q R :
+    Frame p P Q R → Frame p (⇓ P) (⇓ Q) (⇓ R).
+  Proof. rewrite /Frame => <-. rewrite -down1_sep down1_intuitionistically_if //. Qed.
+
   (* what does FromAssumption/KnownLFromAssumption etc. do? *)
   
 End class_instances_up1_down1.

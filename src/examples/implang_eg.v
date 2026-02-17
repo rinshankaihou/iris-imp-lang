@@ -1,4 +1,4 @@
-From iris_simp_lang Require Import implang imp_notation lifting_expr lifting stack_ra.
+From iris_simp_lang Require Import implang imp_notation lifting_expr lifting stack_ra imp_class_instances.
 
 Open Scope func_scope.
 
@@ -40,13 +40,14 @@ Section WPExample.
         "r" ↦v NumV z'
         ⊢ call_assert F E incr [NumV z%Z] "r" ("r" ↦v NumV (z+1)).
     Proof.
-        rewrite /call_assert !up1_wand /stackframe -up1_sep /=.
-        iIntros "r retainer [x _]".
+        rewrite /call_assert /=.
+        iIntros "r retainer [x _] !>".
         remember stack_retainer as retainer.
-        rewrite -wp_assign -wp_binop -wp_var -up1_sep.
-        iFrame. rewrite up1_wand. iIntros "x".
-        rewrite -wp_val /= -up1_sep up1_exist. iFrame.
-        rewrite up1_later up1_wand. iIntros "!> x".
+        rewrite -wp_assign -wp_binop -wp_var.
+        iFrame. iIntros "x".
+        rewrite -wp_val /=. iFrame.
+        iIntros "!> x" (? ?) "S". iModIntro.
+        iExists _.
         rewrite -wp_var.
         rewrite -up1_sep. iFrame.
         rewrite up1_wand. iIntros "x".

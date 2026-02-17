@@ -374,6 +374,16 @@ Proof.
    rewrite /bi_intuitionistically down1_affinely down1_persistently //.
 Qed.
 
+Lemma up1_intuitionistically_if p P : up1 (□?p P) ⊣⊢ □?p (up1 P).
+Proof.
+  intros. destruct p; [rewrite up1_intuitionistically // | done].
+Qed.
+
+Lemma down1_intuitionistically_if p P : down1 (□?p P) ⊣⊢ □?p (down1 P).
+Proof.
+  intros. destruct p; [rewrite down1_intuitionistically // | done].
+Qed.
+
 Global Instance up1_persistent P `{!Persistent P} : Persistent (up1 P).
 Proof.
   by apply monPred_persistent; intros; simpl; apply monPred_at_persistent.

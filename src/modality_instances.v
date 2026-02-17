@@ -25,10 +25,25 @@ Section modalities.
   Proof. done. Qed.
 
   Global Instance into_up1_objective P :
-    Objective P → IntoUp1 P P | 2 .
+    Objective P → IntoUp1 P P | 2.
   Proof.
     rewrite /IntoUp1  => ?.
     rewrite -up1_objective //.
+  Qed.
+
+  (* turns
+      P
+      ----------------∗
+      ⇑ Q
+    into
+      ⇓ P
+      ----------------∗
+      Q
+  *)
+  Global Instance into_up1_from_down P :
+    IntoUp1 P (⇓ P) | 100.
+  Proof.
+    rewrite /IntoUp1 up1_down1 //.
   Qed.
 
   Global Instance into_down1_down1 P :
