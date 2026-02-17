@@ -79,9 +79,10 @@ Section spec.
     iSteps.
     simpl.
 
-    set (∃ l_m lv_a lv_b v, ⌜lv = lv_a++lv_b ⌝ ∧ l ↦ₛ lv_a l_m ∗ l_m ↦ₗ lv_b ∗
-                "l" ↦v (LocV l_m) ∗ "v" ↦v v ∗ "min" ↦v (NumV (min_positive_r lv_a)) ∗
-                stack_retainer min_positive ∗ (∃ _z, ⇓ ("r" ↦v _z)))%I%Z as inv.
+    set (∃ l_m lv_a lv_b v, ⌜lv = lv_a++lv_b ⌝ ∧ 
+          l ↦ₛ lv_a l_m ∗ l_m ↦ₗ lv_b ∗ (* split arr into two parts *)
+          "l" ↦v (LocV l_m) ∗ "v" ↦v v ∗ "min" ↦v (NumV (min_positive_r lv_a)) ∗ (* "min" always store min of the first part*)
+          stack_retainer min_positive ∗ (∃ _z, ⇓ ("r" ↦v _z)))%I%Z as inv.
     wp_apply (wp_while_inv  _ _ _ _ inv with "[] [-]" ) ; simpl.
     {
       iIntros "!> (%l_m & %lv_a & %lv_b & %v & -> & arr_a & arr_b & l & v & min & retainer & (%_z' & r))".
