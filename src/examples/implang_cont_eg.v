@@ -1,4 +1,5 @@
-From iris_simp_lang Require Import implang_cont imp_cont_notation lifting_expr lifting_cont stack_ra proofmode_imp_cont imp_class_instances.
+From iris_simp_lang Require Import implang_cont imp_cont_notation lifting_expr lifting_cont
+  stack_ra proofmode_imp_cont imp_class_instances.
 
 Local Open Scope func_scope.
 
@@ -53,26 +54,18 @@ Section spec.
       rewrite /= !monPred_at_fupd //)
     end.
 
-  Ltac wp_seq := iApply wp_seq.
+  (* ad-hoc, aggressive *)
+  Ltac iSteps := repeat first [iStep | iModIntro | progress iFrame | progress iIntros ].
+
   Lemma min_positive_spec E (l: loc) (lv: list Z) z :
     (∃ _z, "r" ↦v NumV _z) ∗ l ↦ₐ lv
     ⊢ call_assert F E min_positive [LocV l; NumV 0; NumV 0] "r" ("r" ↦v NumV z ∗ l ↦ₐ lv ∗ ⌜min_positive_r lv = z⌝).
   Proof.
-    iIntros "((%_z & r) & arr) retainer (l & min & v & _)".
-    iEval (rewrite -[(_↦v_)%I]up1_down1) in "r".
-    iModIntro.
-    
-    wp_seq.
-    rewrite -wp_seq.
-    rewrite -wp_assign.
-    rewrite -wp_expr.
-
-    
-    Set Typeclasses Debug.
-    Search stack_match.
-    iSplitR.
-
-
+    iIntros "((%_z & r) & arr)".
+    wp_start_func with_retainer "retainer" and_locals "(l & min & v & _)".
+    iSteps.
+    simpl.
+    wp_apply wp_while; simpl.
   Admitted.
 
 End spec.
