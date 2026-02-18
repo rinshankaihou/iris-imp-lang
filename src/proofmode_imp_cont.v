@@ -46,7 +46,7 @@ Lemma tac_wp_deref `{!gen_heapGS loc val Σ} `{!envGS val Σ} `{!invGS_gen hlc �
   envs_entails Δ (wp_expr E e (λ v0,
     match v0 with
     | LocV l => ∃ v, l ↦ v ∗ (l ↦ v -∗ Q v) 
-    (* | _ => False  *)
+    | _ => False 
     end))%I →
   envs_entails Δ (wp_expr E (UnOp DerefOp e) Q).
 Proof.
