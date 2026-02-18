@@ -1,5 +1,5 @@
-From iris_simp_lang Require Import stack_ra.
-From iris_simp_lang Require Export modality_instances.
+From iris_imp_lang Require Import stack_ra.
+From iris_imp_lang Require Export modality_instances.
 From iris.proofmode Require Export proofmode.
 From iris.base_logic Require Export iprop.
 Import bi.

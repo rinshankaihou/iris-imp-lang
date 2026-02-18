@@ -1,4 +1,4 @@
-From iris_simp_lang Require Import implang imp_notation lifting_expr lifting stack_ra imp_class_instances.
+From iris_imp_lang Require Import implang imp_notation lifting_expr lifting stack_ra imp_class_instances.
 
 Open Scope func_scope.
 

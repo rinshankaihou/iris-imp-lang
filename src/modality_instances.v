@@ -1,4 +1,4 @@
-From iris_simp_lang Require Import stack_ra.
+From iris_imp_lang Require Import stack_ra.
 From iris.proofmode Require Export classes.
 Import bi.
 

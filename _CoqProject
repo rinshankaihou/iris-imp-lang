@@ -1,4 +1,4 @@
--Q src iris_simp_lang
+-Q src iris_imp_lang
 
 -arg -w -arg -redundant-canonical-projection
 -arg -w -arg -notation-overriden
@@ -16,6 +16,7 @@ src/lifting_cont.v
 src/lifting.v
 src/modality_instances.v
 src/imp_class_instances.v
+src/proofmode_imp_cont.v
 
 src/examples/implang_eg.v
 src/examples/implang_cont_eg.v

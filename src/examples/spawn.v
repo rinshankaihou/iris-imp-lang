@@ -1,6 +1,6 @@
 From iris.algebra Require Import excl.
 From iris.base_logic.lib Require Import invariants.
-From iris_simp_lang Require Export simp.
+From iris_imp_lang Require Export simp.
 From iris.prelude Require Import options.
 
 (** we don't have sums in the language but we can emulate them with tagged

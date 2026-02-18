@@ -1,4 +1,4 @@
-From iris_simp_lang Require Import simp.
+From iris_imp_lang Require Import simp.
 From iris Require Import options.
 
 Section proof.

@@ -1,4 +1,4 @@
-From iris_simp_lang Require Import simp adequacy examples.par.
+From iris_imp_lang Require Import simp adequacy examples.par.
 From iris.bi.lib Require Import fractional.
 From iris.base_logic.lib Require Import invariants ghost_var.
 From iris Require Import options.

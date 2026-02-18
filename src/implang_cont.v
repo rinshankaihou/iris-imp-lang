@@ -1,7 +1,7 @@
 From stdpp Require Export binders strings.
 From stdpp Require Import gmap.
 From iris.algebra Require Export ofe.
-From iris_simp_lang Require Export implang_expr.
+From iris_imp_lang Require Export implang_expr.
 From iris.prelude Require Import options.
 Open Scope Z.
 From RecordUpdate Require Import RecordSet.

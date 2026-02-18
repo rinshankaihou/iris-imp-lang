@@ -1,5 +1,5 @@
 From iris.base_logic.lib Require Import invariants.
-From iris_simp_lang Require Export simp examples.spawn.
+From iris_imp_lang Require Export simp examples.spawn.
 From iris.prelude Require Import options.
 Import uPred.
 

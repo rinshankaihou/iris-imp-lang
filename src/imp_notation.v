@@ -1,5 +1,5 @@
 From stdpp Require Export binders strings.
-From iris_simp_lang Require Export implang.
+From iris_imp_lang Require Export implang.
 From iris Require Import options.
 
 (* for the expr and val notation scopes *)
