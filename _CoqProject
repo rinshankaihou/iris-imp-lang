@@ -4,17 +4,6 @@
 -arg -w -arg -notation-overriden
 -arg -w -arg -deprecated-since-8.19
 
-src/lang.v
-src/notation.v
-src/tactics.v
-src/class_instances.v
-src/heap_ra.v
-src/heap_lib.v
-src/primitive_laws.v
-src/proofmode.v
-src/proofmode_imp_cont.v
-src/simp.v
-src/adequacy.v
 src/implang_expr.v
 src/implang.v
 src/imp_notation.v
@@ -30,7 +19,3 @@ src/imp_class_instances.v
 
 src/examples/implang_eg.v
 src/examples/implang_cont_eg.v
-src/examples/swap.v
-src/examples/spawn.v
-src/examples/par.v
-src/examples/parallel_add.v
