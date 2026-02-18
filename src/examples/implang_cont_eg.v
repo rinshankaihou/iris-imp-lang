@@ -125,8 +125,23 @@ Section spec.
      induction l; intros.
     - rewrite /compute_min_positive /min_l /pos_elems /=.
       destruct (decide (x > 0)) eqn:Heq; try lia.
-    - rewrite -app_comm_cons !compute_min_positive_cons !IHl.
-  Admitted.
+    - rewrite -app_comm_cons !compute_min_positive_cons !IHl !compute_min_positive_cons.
+      rewrite !bool_decide_and !bool_decide_or.
+      set (compute_min_positive l) as c.
+      (destruct (bool_decide (a > 0)) eqn:H1; 
+       destruct (bool_decide (x > 0)) eqn:H2;
+       destruct (bool_decide (c = 0)) eqn:H3;
+       destruct (bool_decide (x < c)) eqn:H4;
+       destruct (bool_decide (a < c)) eqn:H5;
+       rewrite ?H1 ?H2 ?H3 ?H4 ? H5 //=;
+       rewrite ->?bool_decide_eq_true, ->?bool_decide_eq_false in *; try lia);
+      (destruct (bool_decide (x = 0)) eqn:H6;
+       destruct (bool_decide (a = 0)) eqn:H7;
+       destruct (bool_decide (a < x)) eqn:H8;
+       destruct (bool_decide (x < a)) eqn:H9;
+       rewrite ?H6 ?H7 ?H8 ?H9 //=);
+       rewrite ->?bool_decide_eq_true, ->?bool_decide_eq_false in *; try lia.
+   Qed.
 
   Lemma compute_min_positive_app_comm (lv_a lv_b: list Z) :
     compute_min_positive (lv_a ++ lv_b) = compute_min_positive (lv_b ++ lv_a).
