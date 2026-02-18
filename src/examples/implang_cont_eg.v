@@ -44,6 +44,8 @@ Section spec.
   Definition compute_min_positive (l: list Z) : Z :=
     min_l (pos_elems l).
 
+  (* instead of proving a val is the min_positive, we maintain the invariant that
+    "min" stores (compute_min_positive l') where l' is the list traversed so far.  *)
   Lemma compute_min_positive_is_min_positive_r l :
     min_positive_r (compute_min_positive l) l.
   Proof.
