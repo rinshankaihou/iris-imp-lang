@@ -288,6 +288,18 @@ Proof.
   by rewrite /down1; monPred.unseal.
 Qed.
 
+Lemma up1_or : forall P Q, up1 P ∨ up1 Q ⊣⊢ up1 (P ∨ Q).
+Proof.
+  intros. split => n.
+  by rewrite /up1; monPred.unseal.
+Qed.
+
+Lemma down1_or : forall P Q, down1 P ∨ down1 Q ⊣⊢ down1 (P ∨ Q).
+Proof.
+  intros. split => n.
+  by rewrite /down1; monPred.unseal.
+Qed.
+
 Lemma up1_forall : forall {A} P, up1 (∀ x : A, P x) ⊣⊢ ∀ x, up1 (P x).
 Proof.
   intros. split => n.
@@ -326,6 +338,52 @@ Proof.
   iSplit; iIntros "H" (? <-); by iApply "H".
 Qed.
 
+Lemma up1_persistently P : up1 (<pers> P) ⊣⊢ <pers> (up1 P).
+Proof.
+  intros. split => n.
+  by rewrite /up1; monPred.unseal.
+Qed.
+
+Lemma down1_persistently P : down1 (<pers> P) ⊣⊢ <pers> (down1 P).
+Proof.
+  intros. split => n.
+  by rewrite /down1; monPred.unseal.
+Qed.
+
+Lemma up1_affinely P : up1 (<affine> P) ⊣⊢ <affine> (up1 P).
+Proof.
+  intros. split => n. 
+  rewrite /up1 /= !monPred_at_affinely //.
+Qed.
+
+Lemma down1_affinely P : down1 (<affine> P) ⊣⊢ <affine> (down1 P).
+Proof.
+  intros. split => n. 
+  rewrite /down1 /= !monPred_at_affinely //.
+Qed.
+
+Lemma up1_intuitionistically P : up1 (□ P) ⊣⊢ □ (up1 P).
+Proof.
+  intros.
+   rewrite /bi_intuitionistically up1_affinely up1_persistently //.
+Qed.
+
+Lemma down1_intuitionistically P : down1 (□ P) ⊣⊢ □ (down1 P).
+Proof.
+  intros.
+   rewrite /bi_intuitionistically down1_affinely down1_persistently //.
+Qed.
+
+Lemma up1_intuitionistically_if p P : up1 (□?p P) ⊣⊢ □?p (up1 P).
+Proof.
+  intros. destruct p; [rewrite up1_intuitionistically // | done].
+Qed.
+
+Lemma down1_intuitionistically_if p P : down1 (□?p P) ⊣⊢ □?p (down1 P).
+Proof.
+  intros. destruct p; [rewrite down1_intuitionistically // | done].
+Qed.
+
 Global Instance up1_persistent P `{!Persistent P} : Persistent (up1 P).
 Proof.
   by apply monPred_persistent; intros; simpl; apply monPred_at_persistent.
@@ -359,6 +417,11 @@ Proof.
   intros. split => n.
   by rewrite /down1; monPred.unseal.
 Qed.
+
+Global Instance up1_proper_entails : Proper (flip bi_entails ==> flip bi_entails) up1.
+Proof. split => ? /=. apply H. Qed.
+Global Instance down1_proper_entail : Proper (flip bi_entails ==> flip bi_entails) down1.
+Proof. split => ? /=. apply H. Qed.
 
 End env.
 

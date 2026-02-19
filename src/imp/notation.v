@@ -1,5 +1,5 @@
 From stdpp Require Export binders strings.
-From iris_simp_lang Require Export implang.
+From iris_imp_lang.imp Require Export lang.
 From iris Require Import options.
 
 (* for the expr and val notation scopes *)
@@ -39,6 +39,9 @@ Notation "x <- f ( e1 , e2 , .. , e3 )" := (Scall x%binder f%binder (@cons expr 
 Notation "'If' e1 <{ s2 }> <{ s3 }> " := (Sif e1%E s2%S s3%S)
   (at level 200, e1 at level 1, s2,s3 at level 200,
   format "'[' 'If'  e1  <{ s2 }>  '/' <{ s3 }> ']'" ) : stmt_scope.
+Notation "'If' e1 <{ s2 }> " := (Sif e1%E s2%S (skip)%S)
+  (at level 200, e1 at level 1, s2 at level 200,
+  format "'[' 'If'  e1  <{ s2 }>  ']'" ) : stmt_scope.
 
 Notation "'While' e '<{' s '}>'" := (Swhile e%E s%S)
   (at level 200, e at level 1, s at level 200,

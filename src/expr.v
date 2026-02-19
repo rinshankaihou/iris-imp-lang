@@ -2,24 +2,36 @@ From stdpp Require Export binders strings.
 From stdpp Require Import gmap.
 From iris.algebra Require Export ofe.
 From iris.prelude Require Import options.
-Open Scope Z.
 From RecordUpdate Require Import RecordSet.
 Import RecordSetNotations.
 
 
+Local Open Scope Z.
+
 Inductive bin_op :=
+  (* integer / location arithmetic *)
   | PlusOp
-  | EqOp.
+  (* Boolean comparison *)
+  | EqOp
+  | LtOp
+  | LeOp
+  | GtOp
+  | GeOp
+  | NeqOp
+  (* Boolean and/or *)
+  | AndOp
+  | OrOp
+  .
 
 Inductive un_op :=
   | DerefOp.
 
 Inductive expr :=
-  (* Values *)
+  (* values *)
   | Num (n : Z)
   (* local variable *)
   | Var (x : string)
-  (* Pure operations *)
+  (* pure operations *)
   | BinOp (op : bin_op) (e1 e2 : expr)
   | UnOp (op : un_op) (e : expr)
 .
@@ -56,6 +68,53 @@ Global Instance val_eq_dec' : EqDecision val := val_eq_dec.
 
 Definition BoolV (b:bool) : val := NumV (if b then 1 else 0).
 
+Definition toBoolV (v:val) : option bool :=
+  match v with
+  | NumV n => Some (if n =? 0 then false else true)
+  | _ => None
+  end.
+
+(** Statements and functions *)
+
+(* comparsion & boolean operators *)
+Definition numv_bool_eval (v1 v2 : val) (op: bin_op): option val :=
+  match v1, v2 with
+  | NumV n1, NumV n2 =>
+    match op with
+    | EqOp => Some (BoolV (if bool_decide (n1 = n2) then true else false))
+    | LtOp => Some (BoolV (if bool_decide (n1 < n2) then true else false))
+    | LeOp => Some (BoolV (if bool_decide (n1 <= n2) then true else false))
+    | GtOp => Some (BoolV (if bool_decide (n1 > n2) then true else false))
+    | GeOp => Some (BoolV (if bool_decide (n1 >= n2) then true else false))
+    | NeqOp => Some (BoolV (if bool_decide (n1 = n2) then false else true))
+    | AndOp => match toBoolV v1, toBoolV v2 with
+               | Some b1, Some b2 => Some (BoolV (b1 && b2))
+               | _, _ => None
+               end
+    | OrOp => match toBoolV v1, toBoolV v2 with
+              | Some b1, Some b2 => Some (BoolV (b1 || b2))
+              | _, _ => None
+              end
+    | _ => None
+    end
+  (* for locs, only EqOp is defined *)
+  | LocV l1, LocV l2 =>
+    match op with
+    | EqOp => Some (BoolV (if bool_decide (l1 = l2) then true else false))
+    | _ => None
+    end
+  | LocV l1, NumV n2 =>
+    match op with
+    | EqOp => Some (BoolV false)
+    | _ => None
+    end
+  | NumV n1, LocV l2 =>
+    match op with
+    | EqOp => Some (BoolV false)
+    | _ => None
+    end
+  end.
+
 Definition bin_op_eval (op: bin_op) (v1 v2: val) : option val :=
   match op with
   | PlusOp => match v1, v2 with
@@ -65,7 +124,7 @@ Definition bin_op_eval (op: bin_op) (v1 v2: val) : option val :=
                 Some (LocV (n1 + n2))
               | _, _ => None
               end
-  | EqOp => Some (BoolV $ bool_decide (v1 = v2))
+  | _ => numv_bool_eval v1 v2 op
   end.
 
 (** the language interface needs these things to be inhabited, I believe *)

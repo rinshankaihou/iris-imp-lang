@@ -1,5 +1,5 @@
 From stdpp Require Export binders strings.
-From iris_simp_lang Require Export implang_cont.
+From iris_imp_lang.imp_plus Require Export lang.
 From iris Require Import options.
 
 (* for the expr and val notation scopes *)
@@ -23,6 +23,14 @@ Notation "# l" := (Num l%Z%stdpp) (at level 8, format "# l").
 
 Notation "! e" := (Load e%E) (at level 9, right associativity) : expr_scope.
 Notation "e1 + e2" := (BinOp PlusOp e1%E e2%E) : expr_scope.
+Notation "e1 < e2" := (BinOp LtOp e1%E e2%E) : expr_scope.
+Notation "e1 <= e2" := (BinOp LeOp e1%E e2%E) : expr_scope.
+Notation "e1 > e2" := (BinOp GtOp e1%E e2%E) : expr_scope.
+Notation "e1 >= e2" := (BinOp GeOp e1%E e2%E) : expr_scope.
+Notation "e1 = e2" := (BinOp EqOp e1%E e2%E) : expr_scope.
+Notation "e1 ≠ e2" := (BinOp NeqOp e1%E e2%E) : expr_scope.
+Notation "e1 && e2" := (BinOp AndOp e1%E e2%E) : expr_scope.
+Notation "e1 || e2" := (BinOp OrOp e1%E e2%E) : expr_scope.
 
 Notation " x <a- e " := (Sassign x%binder e%E) (at level 80) : stmt_scope.
 Notation "e1 <s- e2" := (Sstore e1%E e2%E) (at level 80) : stmt_scope.
@@ -39,6 +47,9 @@ Notation "x <- f ( e1 , e2 , .. , e3 )" := (Scall x%binder f%binder (@cons expr 
 Notation "'If' e1 <{ s2 }> <{ s3 }> " := (Sif e1%E s2%S s3%S)
   (at level 200, e1 at level 1, s2,s3 at level 200,
   format "'[' 'If'  e1  <{ s2 }>  '/' <{ s3 }> ']'" ) : stmt_scope.
+Notation "'If' e1 <{ s2 }> " := (Sif e1%E s2%S (skip)%S)
+  (at level 200, e1 at level 1, s2 at level 200,
+  format "'[' 'If'  e1  <{ s2 }>  ']'" ) : stmt_scope.
 
 Notation "'While' e '<{' s '}>'" := (Swhile e%E s%S)
   (at level 200, e at level 1, s at level 200,
@@ -102,6 +113,8 @@ Section NotationExample.
             If "y" <{ skip }> <{ skip }> ;;
             While "y" <{
                 While "y" <{
+                    If "y" <{ continue }> <{ break }>;;
+                    If "y" <{ continue }> ;;
                     If "y" <{ continue }> <{ break }>
                 }>
             }>;;

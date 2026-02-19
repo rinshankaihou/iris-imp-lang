@@ -1,6 +1,6 @@
-From iris_simp_lang Require Import implang imp_notation lifting_expr lifting stack_ra.
+From iris_imp_lang.imp Require Import imp.
 
-Open Scope func_scope.
+Local Open Scope func_scope.
 
 Definition incr :=
     fn "x" <{ ( )
@@ -18,7 +18,7 @@ Definition call_incr : stmt :=
     (* load the stored value, increment the value, stores return value in variable "r" *)
     "r" <- "incr" (!"a"). 
 
-Section WPExample.
+Section spec.
 
     Context `{!gen_heapGS loc val Σ} `{!envGS val Σ} `{!invGS_gen HasNoLc Σ}.
 
@@ -35,34 +35,26 @@ Section WPExample.
     Ltac solve_no_dup :=
         repeat constructor; solve_not_in.
 
-    Global Instance up1_proper_entails : Proper (flip bi_entails ==> flip bi_entails) up1.
-    Proof. split => ? /=. apply H. Qed.
-    Global Instance down1_proper_entail : Proper (flip bi_entails ==> flip bi_entails) down1.
-    Proof. split => ? /=. apply H. Qed.
-
     (* spec for function incr *)
     Lemma wp_incr E z' z:
         "r" ↦v NumV z'
         ⊢ call_assert F E incr [NumV z%Z] "r" ("r" ↦v NumV (z+1)).
     Proof.
-        rewrite /call_assert !up1_wand /stackframe -up1_sep /=.
-        iIntros "r retainer [x _]".
+        rewrite /call_assert /=.
+        iIntros "r retainer [x _] !>".
         remember stack_retainer as retainer.
-        rewrite -wp_assign -wp_binop -wp_var -up1_sep.
-        iFrame. rewrite up1_wand. iIntros "x".
-        rewrite -wp_val /= -up1_sep up1_exist. iFrame.
-        rewrite up1_later up1_wand. iIntros "!> x".
-        rewrite -wp_var.
-        rewrite -up1_sep. iFrame.
-        rewrite up1_wand. iIntros "x".
-        rewrite -!up1_sep up1_exist up1_down1. iFrame.
+        rewrite -wp_assign -wp_binop -wp_var.
+        iFrame. iIntros "x".
+        rewrite -wp_val /=. iFrame.
+        iIntros "!> x".
+        rewrite -wp_var. iFrame. iIntros "x".
+        iFrame.
         iSplitL "x".
         {
-            iExists (cons _ nil). simpl.
-            iStopProof; apply up1_mono.
-            iIntros; iSplit; [done | iFrame].
+            iExists (cons _ nil). iSplit; first done.
+            rewrite /stackframe /=. iFrame.
         }
-        iIntros "!> $".
+        iIntros "!> !> $".
     Qed.
 
     Lemma wp_call_incr E :
@@ -89,4 +81,4 @@ Section WPExample.
         iFrame.
     Qed.
 
-End WPExample.
+End spec.

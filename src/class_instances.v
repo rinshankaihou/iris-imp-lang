@@ -1,109 +1,203 @@
-From iris_simp_lang Require Import notation tactics.
-From iris.prelude Require Import options.
+From iris_imp_lang Require Import stack_ra.
+From iris_imp_lang Require Export modality_instances.
+From iris.proofmode Require Export proofmode.
+From iris.base_logic Require Export iprop.
+Import bi.
 
-(*|
-These instances prove that various expressions are atomic or pure.
+Section class_instances_assert_of.
+  Context `{!envGS Ty Σ}.
 
-`Atomic e` is defined generically for languages by saying `e` reduces to a value
-(recall: this is defined by `to_val e = Some _`) in a single step.
+  Lemma bi_intuitionistically_if_assert_of p (P : nat → (iPropI Σ)) :
+    □?p (assert_of (λ v, P v)) ⊣⊢ assert_of (λ v, □?p (P v)).
+  Proof. split => ?. rewrite monPred_at_intuitionistically_if //. Qed.
+  
+  Lemma assert_of_sep (P Q : nat → (iPropI Σ)) :
+    assert_of (λ v, P v) ∗ assert_of (λ v, Q v) ⊣⊢ assert_of (λ v, P v ∗ Q v).
+  Proof. split => ?. rewrite monPred_at_sep //. Qed.
+  
+  Lemma assert_of_mono P Q :
+    (∀ v, P v ⊢ Q v) → assert_of (λ v, P v) ⊢ assert_of (λ v, Q v).
+  Proof. split => ?. simpl. rewrite H //. Qed.
 
-`PureExec φ n e1 e2` shows that if φ holds (a pure Coq proposition), `e1`
-executes to `e2` in `n` steps. This is eventually needed to define a tactic
-`wp_pure _` that finds and reasons about pure reductions (this subsumes
-`wp_let`, `wp_seq`, `wp_app` and the like, which are just restrictions of
-`wp_pure`).
-|*)
+  Lemma assert_of_and (P Q : nat → (iPropI Σ)) :
+    assert_of (λ v, P v) ∧ assert_of (λ v, Q v) ⊣⊢ assert_of (λ v, P v ∧ Q v).
+  Proof. split => ?. rewrite monPred_at_and //. Qed.
+
+  Global Instance maybe_combine_sep_as_assert_of : forall Q1 Q2 P progress,
+    MaybeCombineSepAs Q1 Q2 P progress →
+    MaybeCombineSepAs (assert_of (λ n, Q1)) (assert_of (λ n, Q2)) (assert_of (λ n, P)) progress | 1.
+  Proof. rewrite /MaybeCombineSepAs. intros. split => ?. rewrite monPred_at_sep //. Qed.
+
+  Global Instance combine_sep_gives_assert_of : forall Q1 Q2 P,
+    CombineSepGives Q1 Q2 P →
+    CombineSepGives (assert_of (λ n, Q1)) (assert_of (λ n, Q2)) (assert_of (λ n, P)).
+  Proof. rewrite /CombineSepGives. intros. split => ?.
+    rewrite monPred_at_sep monPred_at_persistently //.
+  Qed.
+
+  Lemma combine_sep_assert_of_test P Q :
+    ⊢ (assert_of (λ n, P)) -∗ (assert_of (λ n, Q)) -∗ assert_of (λ n, P ∗ Q).
+  Proof. iIntros "x y". by iCombine "x y" as "x". Qed.
+
+End class_instances_assert_of.
 
 
-Global Instance into_val_val v : IntoVal (Val v) v.
-Proof. done. Qed.
-Global Instance as_val_val v : AsVal (Val v).
-Proof. by eexists. Qed.
+Section class_instances_up1_down1.
+  Context `{!envGS Ty Σ}.
 
-(** * Instances of the [Atomic] class *)
-Section atomic.
-  Local Ltac solve_atomic :=
-    apply strongly_atomic_atomic, ectx_language_atomic;
-      [inversion 1; naive_solver
-      |apply ectxi_language_sub_redexes_are_values; intros [] **; naive_solver].
+  #[local] Example from_modal_up1_test P Q : ⇑ P ∗ ⇑ Q ⊢ ⇑ (P ∗ Q).
+  Proof. iIntros "[? ?]". Fail iModIntro. Abort.
+  Global Instance from_modal_up1 P :
+    FromModal True modality_up1 (⇑ P) (⇑ P) P | 2.
+  Proof. by rewrite /FromModal. Qed.
+  #[local] Example from_modal_up1_test P Q : ⇑ P ∗ ⇑ Q ⊢ ⇑ (P ∗ Q).
+  Proof. iIntros "[? ?]". iModIntro. iFrame. Qed.
+  
+  #[local] Example from_modal_down1_test P Q : ⇓ P ∗ ⇓ Q ⊢ ⇓ (P ∗ Q).
+  Proof. iIntros "[? ?]". Fail iModIntro. Abort.
+  Global Instance from_modal_down1 P :
+    FromModal True modality_down1 (⇓ P) (⇓ P) P | 2.
+  Proof. by rewrite /FromModal. Qed.
+  #[local] Example from_modal_down1_test P Q : ⇓ P ∗ ⇓ Q ⊢ ⇓ (P ∗ Q).
+  Proof. iIntros "[? ?]". iModIntro. iFrame. Qed.
 
-  Global Instance rec_atomic s f x e : Atomic s (Rec f x e).
-  Proof. solve_atomic. Qed.
-  (** The instance below is a more general version of [Skip] *)
-  Global Instance beta_atomic s f x v1 v2 : Atomic s (App (RecV f x (Val v1)) (Val v2)).
-  Proof. destruct f, x; solve_atomic. Qed.
-  Global Instance unop_atomic s op v : Atomic s (UnOp op (Val v)).
-  Proof. solve_atomic. Qed.
-  Global Instance binop_atomic s op v1 v2 : Atomic s (BinOp op (Val v1) (Val v2)).
-  Proof. solve_atomic. Qed.
-  Global Instance if_true_atomic s v1 e2 :
-    Atomic s (If (Val $ LitV $ LitBool true) (Val v1) e2).
-  Proof. solve_atomic. Qed.
-  Global Instance if_false_atomic s e1 v2 :
-    Atomic s (If (Val $ LitV $ LitBool false) e1 (Val v2)).
-  Proof. solve_atomic. Qed.
+  Global Instance from_sep_up1 P Q R :
+    FromSep R P Q → FromSep (⇑ R) (⇑ P) (⇑ Q).
+  Proof. rewrite /FromSep => <-. rewrite up1_sep //. Qed.
+  Global Instance from_sep_down1 P Q R :
+    FromSep R P Q → FromSep (⇓ R) (⇓ P) (⇓ Q).
+  Proof. rewrite /FromSep => <-. rewrite down1_sep //. Qed.
 
-  Global Instance fork_atomic s e : Atomic s (Fork e).
-  Proof. solve_atomic. Qed.
+  Global Instance from_and_up1 P Q R:
+    FromAnd R P Q → FromAnd (⇑ R) (⇑ P) (⇑ Q).
+  Proof. rewrite /FromAnd => <-. rewrite up1_and //. Qed.
+  Global Instance from_and_down1 P Q R :
+    FromAnd R P Q → FromAnd (⇓ R) (⇓ P) (⇓ Q).
+  Proof. rewrite /FromAnd => <-. rewrite down1_and //. Qed.
+  
+  Global Instance from_exists_up1 {T:Type} (P:assert) (Φ:T->assert) :
+    FromExist P Φ → FromExist (⇑ P) (λ x, ⇑ (Φ x))%I.
+  Proof. rewrite /FromExist => <-. rewrite -up1_exist //. Qed.
+  Global Instance from_exists_down1 {T:Type} (P:assert) (Φ:T->assert) :
+    FromExist P Φ → FromExist (⇓ P) (λ x, ⇓ (Φ x))%I.
+  Proof. rewrite /FromExist => <-. rewrite -down1_exist //. Qed.
+  
+  Global Instance into_wand_up1 p q (R P Q: assert) :
+    IntoWand p q R P Q → IntoWand p q (⇑ R)%I (⇑ P)%I (⇑ Q)%I.
+  Proof. rewrite /IntoWand /up1. intros ?.
+      split => ?. f_equiv. rewrite !bi_intuitionistically_if_assert_of.
+      apply wand_intro_r.
+      rewrite assert_of_sep. apply assert_of_mono.
+      intros v.
+      rewrite -!monPred_at_intuitionistically_if -monPred_at_sep H.
+      apply monPred_at_mono; last done.
+      iIntros "[x y]"; by iApply "x". 
+  Qed.
+  Global Instance into_wand_down1 p q (R P Q: assert) :
+    IntoWand p q R P Q → IntoWand p q (⇓ R)%I (⇓ P)%I (⇓ Q)%I.
+  Proof. rewrite /IntoWand /down1. intros ?.
+      split => ?. f_equiv. rewrite !bi_intuitionistically_if_assert_of.
+      apply wand_intro_r.
+      rewrite assert_of_sep. apply assert_of_mono.
+      intros v.
+      rewrite -!monPred_at_intuitionistically_if -monPred_at_sep H.
+      apply monPred_at_mono; last done.
+      iIntros "[x y]"; by iApply "x". 
+  Qed.
+  
+  Global Instance from_wand_up1 P Q R :
+    FromWand P Q R → FromWand (⇑ P) (⇑ Q) (⇑ R).
+  Proof. rewrite /FromWand => <-. rewrite up1_wand //. Qed.
+  Global Instance from_wand_down1 P Q R:
+    FromWand P Q R → FromWand (⇓ P) (⇓ Q) (⇓ R).
+  Proof. rewrite /FromWand => <-. rewrite down1_wand //. Qed.
 
-  Global Instance heap_op_atomic op s v1 v2 : Atomic s (HeapOp op (Val v1) (Val v2)).
-  Proof. solve_atomic. Qed.
-End atomic.
+  Global Instance into_and_up1 p P Q1 Q2 :
+    IntoAnd p P Q1 Q2 → IntoAnd p (⇑ P)%I (⇑ Q1)%I (⇑ Q2)%I.   
+  Proof. rewrite /IntoAnd /up1 => HP.
+    rewrite assert_of_and !bi_intuitionistically_if_assert_of /=.
+    apply assert_of_mono. intros v.
+    rewrite -monPred_at_and -!monPred_at_intuitionistically_if HP //.
+  Qed.
+  Global Instance into_and_down1 p P Q1 Q2 :
+    IntoAnd p P Q1 Q2 → IntoAnd p (⇓ P)%I (⇓ Q1)%I (⇓ Q2)%I. 
+  Proof. rewrite /IntoAnd /down1 => HP.
+    rewrite assert_of_and !bi_intuitionistically_if_assert_of /=.
+    apply assert_of_mono. intros v.
+    rewrite -monPred_at_and -!monPred_at_intuitionistically_if HP //.
+  Qed.
 
-(** * Instances of the [PureExec] class *)
-(** The behavior of the various [wp_] tactics with regard to lambda differs in
-the following way:
+  Global Instance into_sep_up1 P Q R:
+    IntoSep P Q R → IntoSep (⇑ P) (⇑ Q) (⇑ R).
+  Proof. rewrite /IntoSep => ->. split => i. rewrite -up1_sep //. Qed.
+  Global Instance into_sep_down1 P Q R:
+    IntoSep P Q R → IntoSep (⇓ P) (⇓ Q) (⇓ R).
+  Proof. rewrite /IntoSep => ->. split => i. rewrite -down1_sep //. Qed.
 
-- [wp_pures] does *not* reduce lambdas/recs that are hidden behind a definition.
-- [wp_rec] and [wp_lam] reduce lambdas/recs that are hidden behind a definition.
+  Global Instance from_or_up1 P Q R:
+    FromOr P Q R → FromOr (⇑ P) (⇑ Q) (⇑ R).
+  Proof. rewrite /FromOr => <-. monPred.unseal. done. Qed.
+  Global Instance from_or_down1 P Q R:
+    FromOr P Q R → FromOr (⇓ P) (⇓ Q) (⇓ R).
+  Proof. rewrite /FromOr => <-. monPred.unseal. done. Qed.
 
-To realize this behavior, we define the class [AsRecV v f x erec], which takes a
-value [v] as its input, and turns it into a [RecV f x erec] via the instance
-[AsRecV_recv : AsRecV (RecV f x e) f x e]. We register this instance via
-[Hint Extern] so that it is only used if [v] is syntactically a lambda/rec, and
-not if [v] contains a lambda/rec that is hidden behind a definition.
+  Global Instance into_or_up1 P Q R:
+    IntoOr P Q R → IntoOr (⇑ P) (⇑ Q) (⇑ R).
+  Proof. rewrite /IntoOr => ->. monPred.unseal. done. Qed.
+  Global Instance into_or_down1 P Q R:
+    IntoOr P Q R → IntoOr (⇓ P) (⇓ Q) (⇓ R).
+  Proof. rewrite /IntoOr => ->. monPred.unseal. done. Qed.
 
-To make sure that [wp_rec] and [wp_lam] do reduce lambdas/recs that are hidden
-behind a definition, we activate [AsRecV_recv] by hand in these tactics. *)
-Class AsRecV (v : val) (f x : binder) (erec : expr) :=
-  as_recv : v = RecV f x erec.
-Global Hint Mode AsRecV ! - - - : typeclass_instances.
-Definition AsRecV_recv f x e : AsRecV (RecV f x e) f x e := eq_refl.
-Global Hint Extern 0 (AsRecV (RecV _ _ _) _ _ _) =>
-  apply AsRecV_recv : typeclass_instances.
+  Global Instance from_exist_up1 {A} P (Φ : A → assert) :
+    FromExist P Φ → FromExist (⇑ P) (λ a, ⇑ (Φ a))%I.
+  Proof. rewrite /FromExist => <-. split => ?. simpl.
+    rewrite monPred_at_exist /= monPred_at_exist //.
+  Qed.
+  Global Instance from_exist_down1 {A} P (Φ : A → assert) :
+    FromExist P Φ → FromExist (⇓ P) (λ a, ⇓ (Φ a))%I.
+  Proof. rewrite /FromExist => <-. split => ?. simpl.
+    rewrite monPred_at_exist /= monPred_at_exist //.
+  Qed.
 
-Section pure_exec.
-  Local Ltac solve_exec_safe := intros; subst; do 3 eexists; econstructor; eauto.
-  Local Ltac solve_exec_puredet := simpl; intros; by inv_base_step.
-  Local Ltac solve_pure_exec :=
-    subst; intros ?; apply nsteps_once, pure_base_step_pure_step;
-      constructor; [solve_exec_safe | solve_exec_puredet].
+  Global Instance into_exist_up1 {A} P (Φ : A → assert) name:
+    IntoExist P Φ name → IntoExist (⇑ P) (λ a, ⇑ (Φ a))%I name.
+  Proof. rewrite /IntoExist => ->. split => ?. simpl.
+    rewrite monPred_at_exist /= monPred_at_exist //.
+  Qed.
+  Global Instance into_exist_down1 {A} P (Φ : A → assert) name:
+    IntoExist P Φ name → IntoExist (⇓ P) (λ a, ⇓ (Φ a))%I name.
+  Proof. rewrite /IntoExist => ->. split => ?. simpl.
+    rewrite monPred_at_exist /= monPred_at_exist //.
+  Qed.
 
-  Global Instance pure_recc f x (erec : expr) :
-    PureExec True 1 (Rec f x erec) (Val $ RecV f x erec).
-  Proof. solve_pure_exec. Qed.
-  Global Instance pure_beta f x (erec : expr) (v1 v2 : val) `{!AsRecV v1 f x erec} :
-    PureExec True 1 (App (Val v1) (Val v2)) (subst' x v2 (subst' f v1 erec)).
-  Proof. unfold AsRecV in *. solve_pure_exec. Qed.
+  Global Instance into_forall_up1 {A} P (Φ : A → assert) :
+    IntoForall P Φ → IntoForall (⇑ P) (λ a, ⇑ (Φ a))%I.
+  Proof. rewrite /IntoForall=> HP. by rewrite HP up1_forall. Qed.
+  Global Instance into_forall_down1 {A} P (Φ : A → assert) :
+    IntoForall P Φ → IntoForall (⇓ P) (λ a, ⇓ (Φ a))%I.
+  Proof. rewrite /IntoForall=> HP. by rewrite HP down1_forall. Qed.
 
-  Global Instance pure_unop op v v' :
-    PureExec (un_op_eval op v = Some v') 1 (UnOp op (Val v)) (Val v').
-  Proof. solve_pure_exec. Qed.
+  Global Instance from_forall_persistently_up1 {A} P (Φ : A → assert) name :
+    FromForall P Φ name → FromForall (⇑ P) (λ a, ⇑ (Φ a))%I name.
+  Proof. rewrite /FromForall=> <-. by rewrite up1_forall. Qed.
+  Global Instance from_forall_persistently_down1 {A} P (Φ : A → assert) name :
+    FromForall P Φ name → FromForall (⇓ P) (λ a, ⇓ (Φ a))%I name.
+  Proof. rewrite /FromForall=> <-. by rewrite down1_forall. Qed.
 
-  Global Instance pure_binop op v1 v2 v' :
-    PureExec (bin_op_eval op v1 v2 = Some v') 1 (BinOp op (Val v1) (Val v2)) (Val v') | 10.
-  Proof. solve_pure_exec. Qed.
-  (* Higher-priority instance for [EqOp]. *)
-  Global Instance pure_eqop v1 v2 :
-    PureExec True 1
-      (BinOp EqOp (Val v1) (Val v2))
-      (Val $ LitV $ LitBool $ bool_decide (v1 = v2)) | 1.
-  Proof. solve_pure_exec. Qed.
+  Global Instance into_pure_up1 P φ :
+    IntoPure P φ → IntoPure (⇑ P) φ.
+  Proof. rewrite /IntoPure => ->. rewrite -up1_objective //. Qed.
+  Global Instance into_pure_down1 P φ :
+    IntoPure P φ → IntoPure (⇓ P) φ.
+  Proof. rewrite /IntoPure => ->. rewrite -down1_objective //. Qed.
 
-  Global Instance pure_if_true e1 e2 :
-    PureExec True 1 (If (Val $ LitV $ LitBool true) e1 e2) e1.
-  Proof. solve_pure_exec. Qed.
-  Global Instance pure_if_false e1 e2 :
-    PureExec True 1 (If (Val $ LitV $ LitBool false) e1 e2) e2.
-  Proof. solve_pure_exec. Qed.
-End pure_exec.
+  Global Instance frame_up1 p P Q R :
+    Frame p P Q R → Frame p (⇑ P) (⇑ Q) (⇑ R).
+  Proof. rewrite /Frame => <-. rewrite -up1_sep up1_intuitionistically_if //. Qed.
+  Global Instance frame_down1 p P Q R :
+    Frame p P Q R → Frame p (⇓ P) (⇓ Q) (⇓ R).
+  Proof. rewrite /Frame => <-. rewrite -down1_sep down1_intuitionistically_if //. Qed.
+
+  (* what does FromAssumption/KnownLFromAssumption etc. do? *)
+  
+End class_instances_up1_down1.
