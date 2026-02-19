@@ -1,12 +1,10 @@
 From stdpp Require Export binders strings.
 From stdpp Require Import gmap.
 From iris.algebra Require Export ofe.
-From iris_imp_lang Require Export implang_expr.
+From iris_imp_lang Require Export expr.
 From iris.prelude Require Import options.
-Open Scope Z.
 From RecordUpdate Require Import RecordSet.
 Import RecordSetNotations.
-
 
 (* s ::= skip | x := e | x := alloc | *e := e | s;s | if (e){s}else{s}
          | while(e){s} | x := f(\vec{e}) | return e 

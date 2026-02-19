@@ -1,5 +1,6 @@
 From iris.base_logic Require Import gen_heap.
-From iris_imp_lang Require Import imp_cont_notation stack_ra lifting_expr imp_class_instances.
+From iris_imp_lang Require Import lifting_expr class_instances stack_ra.
+From iris_imp_lang.imp_plus Require Import notation.
 
 Section wp.
 
@@ -405,7 +406,8 @@ Proof.
     iPureIntro; by constructor.
 Qed.
 
-Lemma stack_depth_max : forall k ρ n, cont_to_stack k = (ρ, n) → ∀ m, n ≤ m → ρ !! m = None.
+Lemma stack_depth_max : forall k ρ n,
+  cont_to_stack k = (ρ, n) → ∀ m, (n ≤ m)%nat → ρ !! m = None.
 Proof.
   induction k; simpl; try done.
   - inversion 1; intros; by rewrite lookup_empty.

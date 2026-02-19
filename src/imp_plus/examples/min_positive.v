@@ -1,5 +1,4 @@
-From iris_imp_lang Require Import implang_cont imp_cont_notation lifting_expr lifting_cont
-  stack_ra proofmode_imp_cont imp_class_instances.
+From iris_imp_lang.imp_plus Require Import imp_plus.
 
 Local Open Scope func_scope.
 

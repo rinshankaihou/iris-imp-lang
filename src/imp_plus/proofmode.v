@@ -1,6 +1,7 @@
 From iris.proofmode Require Import coq_tactics reduction spec_patterns.
 From iris.proofmode Require Export tactics.
-From iris_imp_lang Require Import implang_cont imp_class_instances lifting_expr lifting_cont.
+From iris_imp_lang Require Import class_instances lifting_expr.
+From iris_imp_lang.imp_plus Require Import lang lifting.
 
 Ltac reshape_seq :=
   lazymatch goal with

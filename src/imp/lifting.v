@@ -1,6 +1,7 @@
 (* wp for implang *)
 From iris.base_logic Require Import gen_heap.
-From iris_imp_lang Require Import implang imp_notation lifting_expr.
+From iris_imp_lang Require Import lifting_expr.
+From iris_imp_lang.imp Require Import notation.
 
 Section wp.
 

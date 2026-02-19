@@ -1,6 +1,6 @@
-From iris_imp_lang Require Import implang imp_notation lifting_expr lifting stack_ra imp_class_instances.
+From iris_imp_lang.imp Require Import imp.
 
-Open Scope func_scope.
+Local Open Scope func_scope.
 
 Definition incr :=
     fn "x" <{ ( )
@@ -18,7 +18,7 @@ Definition call_incr : stmt :=
     (* load the stored value, increment the value, stores return value in variable "r" *)
     "r" <- "incr" (!"a"). 
 
-Section WPExample.
+Section spec.
 
     Context `{!gen_heapGS loc val Σ} `{!envGS val Σ} `{!invGS_gen HasNoLc Σ}.
 
@@ -81,4 +81,4 @@ Section WPExample.
         iFrame.
     Qed.
 
-End WPExample.
+End spec.

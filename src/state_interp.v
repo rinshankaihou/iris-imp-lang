@@ -1,5 +1,5 @@
 From iris.base_logic Require Export gen_heap.
-From iris_imp_lang Require Import implang_expr.
+From iris_imp_lang Require Import expr.
 From iris_imp_lang Require Export stack_ra.
 
 Notation "l ↦ v" := (⎡pointsto l (DfracOwn 1) v⎤ : assert)%I (at level 20).

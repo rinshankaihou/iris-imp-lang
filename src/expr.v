@@ -2,10 +2,11 @@ From stdpp Require Export binders strings.
 From stdpp Require Import gmap.
 From iris.algebra Require Export ofe.
 From iris.prelude Require Import options.
-Open Scope Z.
 From RecordUpdate Require Import RecordSet.
 Import RecordSetNotations.
 
+
+Local Open Scope Z.
 
 Inductive bin_op :=
   (* integer / location arithmetic *)

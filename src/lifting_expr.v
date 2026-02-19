@@ -1,5 +1,5 @@
 From iris.base_logic.lib Require Export fancy_updates.
-From iris_imp_lang Require Import implang_expr.
+From iris_imp_lang Require Import expr.
 From iris_imp_lang Require Export state_interp.
 
 Lemma monPred_at_big_sepL2 : forall {I : biIndex} {PROP : bi} {A B} (Φ : A → B → monPred I PROP) (l1 : list A) (l2 : list B) n,
