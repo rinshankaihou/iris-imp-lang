@@ -11,7 +11,7 @@ To see how a functional language instance is instantiated, see the tutorial [iri
 
 ### Dependencies
 
-This development relies on a Iris 4.3.0 and Coq 8.20.0.
+This development relies on Rocq (Coq) 8.20.0 and Iris 4.3.0.
 
 ### Compilation
 
@@ -19,7 +19,7 @@ Simply run `make`.
 
 ## File Structure
 
-`imp` and `imp+` has many shared components in common: expressions, the model of their stack resource algebra, the state interpretation. On top of that, we define them in `src/imp/` and `src/imp_plus/` for their own semantics and proof rules. This is because `imp+` uses continuation in the program state and a special kind of predicate -- `postassert` -- in the logic to support `break` and `continue`, while `imp` only supports `return`ing from a function and has a straightforward model.
+`imp` and `imp+` has many shared components: expressions, the stack resource algebra and the state interpretation. On top of that, we define them individually in `src/imp/` and `src/imp_plus/`, including their own semantics and proof rules. We do not model `imp+` as a strict extension of `imp`: `imp+` uses continuation in the program state and a special kind of predicate -- `postassert` -- in the logic to support `break` and `continue`, while `imp` only supports `return`ing from a function and has a more straightforward model.
 
 **`src/` Shared components:**
 - `expr.v` - Expression (shared by both `imp` and `imp+`)
@@ -37,7 +37,7 @@ Simply run `make`.
 
 **`src/imp_plus/` - Extended imperative language (with break/continue):**
 - `lang.v` - Language definition
-- `notation.v` - Notations for extended statements
+- `notation.v` - Notations for statements and functions
 - `lifting.v` - Proof rules for `imp+` statements `wp`
-- `proofmode.v` - Proof mode tactics
+- `proofmode.v` - Proof mode tactics for applying `wp` rules
 - `examples/min_positive.v` - A verification example demonstrating break/continue in a while loop
