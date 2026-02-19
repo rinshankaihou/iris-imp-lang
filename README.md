@@ -32,12 +32,13 @@ Simply run `make`.
 **`src/imp/` - Defines imp-lang:**
 - `lang.v` - Language definition
 - `notation.v` - Notations for statements and functions
-- `lifting.v` - Proof rules for `imp` statements `wp`
+- `lifting.v` - `imp` proof rules with a custom definition of `wp`
+- `lifting2.v` - `imp` proof rules with the standard Iris `wp`
 - `examples/incr.v` - A verification example demonstrating (de)allocation of a stack frame during function call
 
 **`src/imp_plus/` - Extended imperative language (with break/continue):**
 - `lang.v` - Language definition
 - `notation.v` - Notations for statements and functions
-- `lifting.v` - Proof rules for `imp+` statements `wp`
+- `lifting.v` - `imp+` proof rules with a custom definition of `wp`
 - `proofmode.v` - Proof mode tactics for applying `wp` rules
 - `examples/min_positive.v` - A verification example demonstrating break/continue in a while loop
