@@ -31,7 +31,7 @@ Ltac expr_det := match goal with H1 : eval_expr' ?a ?b ?v1, H2 : eval_expr' ?a ?
 
 Section wp.
 
-Context `{!gen_heapGS loc val Σ} `{!envGS val Σ} `{!invGS_gen HasNoLc Σ} `{!inG Σ (excl_authR nat)}.
+Context `{!gen_heapGS loc val Σ} `{!envGS val Σ} `{!invGS_gen hlc Σ} `{!inG Σ (excl_authR nat)}.
 Variable (F : func_env).
 Variable (γ : gname).
 
@@ -51,7 +51,7 @@ Definition state_ctx (s : state) := (gen_heap_interp s.(m) ∗
   let '(ρ0, n) := make_stack s.(k) in
     env_auth (<[n := s.(ρ)]>ρ0) ∗ own γ (●E n))%I.
 
-Global Instance implang_irisG : irisGS_gen HasNoLc imp_lang Σ := {
+Global Instance implang_irisG : irisGS_gen hlc imp_lang Σ := {
   iris_invGS := _;
   state_interp s _ _ _ := state_ctx s;
   fork_post _ := True%I;
@@ -467,7 +467,7 @@ End wp.
 Section adequacy.
 
 Lemma wp_adequacy Σ `{!gen_heapGpreS loc val Σ} `{!inG Σ (@envR val)} `{!invGpreS Σ} `{!inG Σ (excl_authR nat)} F (s : stmt) σ φ :
-  (∀ `{!gen_heapGS loc val Σ} `{!envGS val Σ} `{Hinv : !invGS_gen HasNoLc Σ} γ,
+  (∀ `{!gen_heapGS loc val Σ} `{!envGS val Σ} `{Hinv : !invGS_gen hlc Σ} γ,
      ⊢ |={⊤}=> wp F γ ⊤ s (⌜φ⌝)) →
   adequate(Λ := imp_lang F) NotStuck s (Build_state ∅ σ []) (λ _ _, φ).
 Proof.
