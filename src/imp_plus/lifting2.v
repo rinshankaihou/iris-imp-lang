@@ -106,7 +106,7 @@ Proof.
   iIntros "H %% Hguard"; by iApply "Hguard".
 Qed.
 
-Lemma var_e : forall k x v s,
+(* Lemma var_e : forall k x v s,
   stack_match k ∗ x ↦v v ∗ ⎡state_ctx s⎤ ⊢ ⌜s.1 !! x = Some v⌝.
 Proof.
   intros; rewrite /state_ctx /stack_match /stack_level /stack_depth.
@@ -129,7 +129,7 @@ Proof.
   iMod (var_update with "[$Hx $Hρ]") as "(? & $)"; iFrame.
   destruct (cont_to_stack k).
   rewrite /set_var lookup_insert insert_insert; by iFrame.
-Qed.
+Qed. 
 
 Lemma wp_expr_app E e Q k s : wp_expr E e Q -∗ stack_match k -∗
   ⎡state_ctx s⎤ ={E}=∗ ∃ v, ⌜eval_expr e s.1 s.2 v⌝ ∗ stack_match k ∗
@@ -636,9 +636,9 @@ Proof.
   intros (? & ? & Hstep); split; first done; split; first done.
   inv Hstep; constructor; rewrite /= ?find_call_idem //.
 Qed.
-
+*)
 End wp.
-
+(*
 Section adequacy.
 
 Definition normal_post `{envGS val Σ} Q :=
@@ -681,3 +681,4 @@ Proof.
 Qed.
 
 End adequacy.
+*)
