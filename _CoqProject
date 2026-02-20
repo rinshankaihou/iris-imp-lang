@@ -14,12 +14,14 @@ src/state_interp.v
 src/imp/lang.v
 src/imp/notation.v
 src/imp/lifting.v
+src/imp/lifting2.v
 src/imp/imp.v
 src/imp/examples/incr.v
 
 src/imp_plus/lang.v
 src/imp_plus/notation.v
 src/imp_plus/lifting.v
+src/imp_plus/lifting2.v
 src/imp_plus/proofmode.v
 src/imp_plus/imp_plus.v
 src/imp_plus/examples/min_positive.v
