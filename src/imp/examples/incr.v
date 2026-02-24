@@ -20,7 +20,7 @@ Definition call_incr : stmt :=
 
 Section spec.
 
-    Context `{!gen_heapGS loc val Σ} `{!envGS val Σ} `{!invGS_gen HasNoLc Σ}.
+    Context `{!impGS hlc Σ}.
 
     Instance nodup_val_decision (vs: list val): Decision (NoDup vs).
     Proof. apply NoDup_dec. Qed.

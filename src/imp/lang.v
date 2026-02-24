@@ -78,10 +78,11 @@ Inductive step : func_env -> stmt → state → stmt → state → Prop :=
   | AssignS F (x: string) e σ (v: val) :
     eval_expr' e σ v →
     step F (Sassign x e) σ Sskip (σ <| ρ ::= <[x := v]> |>)
-  | AllocS F x σ :
+  | AllocS F x σ l :
+    σ.(m) !! l = None →
     step F (Salloc x) σ Sskip
-              (σ <| ρ ::= <[x := LocV (next_loc σ.(m))]> |>
-                 <| m ::= <[next_loc σ.(m) := NumV 0]> |>)
+              (σ <| ρ ::= <[x := LocV l]> |>
+                 <| m ::= <[l := NumV 0]> |>)
   | StoreS F e1 e2 σ l v1 v2 :
     eval_expr' e1 σ (LocV l) →
     eval_expr' e2 σ v2 →
@@ -120,15 +121,15 @@ Inductive step_star : func_env -> stmt → state → stmt → state → Prop :=
   | Step1 F s σ s' σ' s'' σ'' : step F s σ s' σ' → step_star F s' σ' s'' σ'' →
       step_star F s σ s'' σ''.
 
-(*Definition fresh_locs (ls : gset loc) : loc :=
-  set_fold (λ k r, (1 + k) `max` r) 1 ls.
+Definition fresh_locs (ls : gset loc) : loc :=
+  set_fold (λ k r, (1 + k) `max` r)%Z 1 ls.
 
 Lemma fresh_locs_fresh ls :
   fresh_locs ls ∉ ls.
 Proof.
-  cut (∀ l, l ∈ ls → l < fresh_locs ls).
+  cut (∀ l, l ∈ ls → l < fresh_locs ls)%Z.
   { intros help Hf%help. lia. }
-  apply (set_fold_ind_L (λ r ls, ∀ l, l ∈ ls → l < r));
+  apply (set_fold_ind_L (λ r ls, ∀ l, l ∈ ls → l < r))%Z;
     set_solver by eauto with lia.
 Qed.
 
@@ -144,4 +145,4 @@ Proof.
   apply AllocS.
   apply (not_elem_of_dom (D := gset loc)).
   by apply fresh_locs_fresh.
-Qed.*)
+Qed.

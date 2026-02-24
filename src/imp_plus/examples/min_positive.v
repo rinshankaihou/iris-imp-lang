@@ -22,7 +22,7 @@ Definition F : func_env :=
 
 Section spec.
 
-  Context `{!gen_heapGS loc val Σ} `{!envGS val Σ} `{!invGS_gen HasNoLc Σ}.
+  Context `{!impGS hlc Σ}.
 
   Local Open Scope bi_scope.
   Local Open Scope Z_scope.
@@ -332,5 +332,3 @@ Section spec.
   Qed.
 
 End spec.
-
-
