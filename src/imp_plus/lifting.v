@@ -106,7 +106,7 @@ Lemma wp_mono E s P Q :
   wp E s P -∗ wp E s Q.
 Proof.
   rewrite /wp; iIntros "HPQ H" (??) "Hguard".
-  by iApply "H"; iApply (guarded_mono with "HPQ").
+  iApply "H"; iApply (guarded_mono with "HPQ").
 Qed.
 
 Lemma wp_skip E Q : Qnormal Q ⊢ wp E skip Q.

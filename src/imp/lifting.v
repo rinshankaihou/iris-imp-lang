@@ -7,15 +7,15 @@ From iris_imp_lang.imp Require Import notation.
 From RecordUpdate Require Import RecordSet.
 Import RecordSetNotations.
 
-Definition to_val s := match s with skip => Some tt | _ => None end.
+Definition to_val (s : stmt * stack) := match s with (skip, []) => Some tt | _ => None end.
 
-Lemma implang_mixin F : LanguageMixin(observation := Empty_set) (λ _, skip) to_val
-    (λ s σ obs s' σ' es, obs = [] ∧ es = [] ∧ step F s σ s' σ').
+Lemma implang_mixin F : LanguageMixin(observation := Empty_set) (λ _, (skip, [])) to_val
+    (λ s σ obs s' σ' es, obs = [] ∧ es = [] ∧ step F s.1 (Build_state σ.1 σ.2 s.2) s'.1 (Build_state σ'.1 σ'.2 s'.2)).
 Proof.
   split.
   - by intros [].
-  - by destruct e; inversion 1.
-  - by intros ?????? (? & ? & H); inv H.
+  - by destruct e as [[] []]; inversion 1.
+  - by intros (?,?)??(?,?)?? (? & ? & H); inv H; simpl in *; subst.
 Qed.
 
 Lemma eval_expr_det e r m v1 : eval_expr e r m v1 → forall v2, eval_expr e r m v2 →
@@ -30,11 +30,12 @@ Qed.
 Ltac expr_det := match goal with H1 : eval_expr' ?a ?b ?v1, H2 : eval_expr' ?a ?b ?v2 |- _ =>
   let H := fresh "Heq" in pose proof (eval_expr_det _ _ _ _ H1 _ H2) as H; clear H2; inv H end.
 
+Canonical Structure contO := leibnizO stack.
 Class impGS hlc Σ :=
   { impGS_gen_heapGS :: gen_heapGS loc val Σ;
     impGS_envGS :: envGS val Σ;
     impGS_invGS :: invGS_gen hlc Σ;
-    impGS_stackGS :: inG Σ (excl_authR nat);
+    impGS_stackGS :: inG Σ (excl_authR stack);
     impGS_stack_gname : gname
   }.
 
@@ -56,9 +57,9 @@ Fixpoint make_stack (k : stack) : env_state * nat :=
 
 Definition stack_depth k := snd (make_stack k).
 
-Definition state_ctx (s : state) := (gen_heap_interp s.(m) ∗
-  let '(ρ0, n) := make_stack s.(k) in
-    env_auth (<[n := s.(ρ)]>ρ0) ∗ own γ (●E n))%I.
+Definition state_ctx s := (gen_heap_interp s.2 ∗
+  ∃ k, 
+  env_auth (let '(ρ0, n) := make_stack k in <[n := s.1]>ρ0) ∗ own γ (●E k))%I.
 
 Global Instance implang_irisG : irisGS_gen hlc imp_lang Σ := {
   iris_invGS := _;
@@ -68,141 +69,213 @@ Global Instance implang_irisG : irisGS_gen hlc imp_lang Σ := {
   state_interp_mono _ _ _ _ := fupd_intro _ _;
 }.
 
-Definition stack_top n := (⎡own γ (◯E n)⎤ ∗ stack_level n)%I.
+Definition stack_match k := (⎡own γ (◯E k)⎤ ∗ stack_level (stack_depth k))%I.
 
-Definition wp E s (Q : assert) : assert := (∀ n, stack_top n -∗
-  ⎡wp NotStuck E s (λ _, ∃ n', own γ (◯E n') ∗ Q n')⎤)%I.
+Definition wp_sk E s k (Q : assert) := (stack_match k -∗
+  ⎡wp NotStuck E (s, k) (λ _, ∃ k', own γ (◯E k') ∗ Q (stack_depth k'))⎤)%I.
 
-Lemma wp_mono E s P Q : <obj> (P -∗ Q) ⊢ wp E s P -∗ wp E s Q.
+Definition guarded E Q k R :=
+  (Q -∗ wp_sk E skip k R)%I.
+
+Definition wp E s Q := (∀ k R, guarded E Q k R -∗ wp_sk E s k R)%I.
+(* Definition wp E s (Q : assert) : assert := (∀ n, stack_top n -∗
+  ⎡wp NotStuck E s (λ _, ∃ n', own γ (◯E n') ∗ Q n')⎤)%I.  *)
+
+Lemma guarded_mono E P Q k R :
+  (P -∗ Q) ⊢
+  guarded E Q k R -∗ guarded E P k R.
 Proof.
-  iIntros "HPQ H" (?) "N".
-  iSpecialize ("H" with "N").
-  iApply (wp_wand with "H").
-  iIntros (_) "(% & $ & ?)".
-  iStopProof; split => ?; monPred.unseal.
-  iIntros "(HPQ & H)"; by iApply "HPQ".
+  rewrite /guarded; iIntros "HPQ H".
+  by iIntros "HQ"; iApply "H"; iApply "HPQ".
+Qed.
+
+Lemma wp_mono E s P Q :  (P -∗ Q) ⊢ wp E s P -∗ wp E s Q.
+Proof.
+  rewrite /wp; iIntros "HPQ H" (??) "Hguard".
+  by iApply "H"; iApply (guarded_mono with "[HPQ]").
 Qed.
 
 Lemma wp_skip E R : R ⊢ wp E skip R.
 Proof.
-  iIntros "R" (?) "(N & L)".
-  rewrite /wp wp_unfold /wp_pre /=.
-  rewrite embed_fupd; iModIntro; iFrame.
-  by iApply (stack_level_embed with "L").
+  iIntros "H %% Hguard"; by iApply "Hguard".
 Qed.
 
-Lemma var_e : forall n x v s,
-  stack_top n ∗ x ↦v v ∗ ⎡state_ctx s⎤ ⊢ ⌜s.(ρ) !! x = Some v⌝.
+Lemma var_e : forall k x v s,
+  stack_match k ∗ x ↦v v ∗ ⎡state_ctx s⎤ ⊢ ⌜s.1 !! x = Some v⌝.
 Proof.
-  intros; rewrite /state_ctx /stack_top /stack_level.
-  destruct (make_stack _) eqn: Hk.
+  intros; rewrite /state_ctx /stack_match /stack_level /stack_depth.
   split => ?; monPred.unseal.
-  iIntros "((N & <-) & Hx & _ & Hρ & N')".
+  iIntros "((N & <-) & Hx & _ & %k' & Hρ & N')".
   iCombine "N N'" gives %->%excl_auth_agree_L.
   iDestruct (var_e with "[$Hx $Hρ]") as %?.
+  destruct (make_stack k).
   by rewrite /env_to_environ lookup_insert in H.
 Qed.
 
-Lemma var_update : forall n x v v' s,
-  stack_top n ∗ x ↦v v ∗ ⎡state_ctx s⎤ ⊢
-  |==> stack_top n ∗ x ↦v v' ∗ ⎡state_ctx (s <| ρ ::= <[x := v']> |>)⎤.
+Lemma var_update : forall k x v v' s,
+  stack_match k ∗ x ↦v v ∗ ⎡state_ctx s⎤ ⊢
+  |==> stack_match k ∗ x ↦v v' ∗ ⎡state_ctx (<[x := v']> s.1, s.2)⎤.
 Proof.
-  intros; rewrite /state_ctx /stack_top /stack_level.
-  destruct (make_stack _) eqn: Hk.
+  intros; rewrite /state_ctx /stack_match /stack_level /stack_depth.
   split => ?; monPred.unseal.
-  iIntros "((N & %H) & Hx & $ & Hρ & N')"; hnf in H; subst.
-  iCombine "N N'" gives %<-%excl_auth_agree_L.
-  iMod (var_update with "[$Hx $Hρ]") as "(? & $)".
+  iIntros "((N & %H) & Hx & $ & % & Hρ & N')"; hnf in H; subst.
+  iCombine "N N'" gives %->%excl_auth_agree_L.
+  iMod (var_update with "[$Hx $Hρ]") as "(? & $)"; iFrame.
+  destruct (make_stack k).
   rewrite /set_var lookup_insert insert_insert; by iFrame.
-Qed.
+Qed. 
 
-Lemma state_level_elim s n : state_ctx s -∗ own γ (◯E n) -∗ ⌜n = stack_depth s.(k)⌝.
-Proof.
-  rewrite /state_ctx /stack_depth.
-  destruct (make_stack _).
-  iIntros "(_ & _ & Ha) Hb".
-  by iCombine "Ha Hb" gives %->%excl_auth_agree_L.
-Qed.
-
-Lemma wp_seq E s1 s2 Q : wp E s1 (▷ wp E s2 Q) ⊢ wp E (Sseq s1 s2) Q.
-Proof.
-  split => n; rewrite /wp /stack_top /stack_level; monPred.unseal.
-  iIntros "H" (?? <-) "(N & ->)".
-  iSpecialize ("H" with "[//] [$N //]").
-  clear.
-  iLöb as "IH" forall (s1 s2 Q).
-  rewrite wp_unfold (wp_unfold _ _ (s1;; s2)%S) /wp_pre /=.
-  iIntros (?????) "S".
-  destruct (to_val s1) eqn: Hs1.
-  - destruct s1; inv Hs1.
-    iMod "H" as (?) "(N & H)".
-    iApply fupd_mask_intro; first set_solver; iIntros "Hclose".
-    iSplit.
-    { iPureIntro. eexists _, _, _, _; split; first done; split; first done.
-      apply SeqS2. }
-    iIntros (??? (-> & -> & H)); inv H.
-    { inv H6. }
-    iDestruct (state_level_elim with "S N") as %->; iFrame.
-    iIntros "_ !> !> !>".
-    iMod "Hclose".
-    iModIntro; iSplit => //.
-    by iApply ("H" with "[//] [$N //]").
-  - iDestruct ("H" $! _ O [] [] O with "[$]") as ">(%Hred & H)".
-    iModIntro; iSplit.
-    { iPureIntro; destruct Hred as (? & ? & ? & ? & -> & -> & H).
-      eexists _, _, _, _; split; first done; split; first done.
-      by constructor. }
-    iIntros (??? (-> & -> & H)) "?".
-    inv H.
-    iMod ("H" with "[//] [$]") as "H".
-    iIntros "!> !> !>".
-    iMod "H"; iMod "H" as "($ & H & $)".
-    by iApply "IH".
-Qed.
-
-Lemma wp_expr_app E e Q n s : wp_expr E e Q -∗ stack_top n -∗
-  ⎡state_ctx s⎤ ={E}=∗ ∃ v, ⌜eval_expr e s.(ρ) s.(m) v⌝ ∗ stack_top n ∗
+Lemma wp_expr_app E e Q k s : wp_expr E e Q -∗ stack_match k -∗
+  ⎡state_ctx s⎤ ={E}=∗ ∃ v, ⌜eval_expr e s.1 s.2 v⌝ ∗ stack_match k ∗
   ⎡state_ctx s⎤ ∗ Q v.
 Proof.
   rewrite /state_ctx; wp_expr.unseal.
-  iIntros "H (N & #L) (Hσ & Hρ)".
-  destruct (make_stack _) eqn: Hstack; iDestruct "Hρ" as "(Hρ & N')".
+  iIntros "H (N & #L) (Hσ & % & Hρ & N')".
   iMod ("H" with "[$Hσ $Hρ]") as (?) "(He & ($ & $) & HQ)".
   iCombine "N N'" gives %->%excl_auth_agree_L.
   iFrame; iFrame "#".
   iStopProof; split => ?; rewrite /stack_level; monPred.unseal; rewrite monPred_at_intuitionistically.
-  iIntros "(% & H)"; iApply ("H" with "[//]").
+  iIntros "(% & H) !>".
+  iApply ("H" with "[//]").
+  rewrite /stack_depth; destruct (make_stack k).
   by rewrite lookup_insert.
 Qed.
 
-Lemma stack_top_embed n (P : assert) : stack_top n -∗ P -∗ ⎡own γ (◯E n) ∗ P n⎤.
+Lemma stack_match_embed k (P : assert) : stack_match k -∗ P -∗ ⎡own γ (◯E k) ∗ P (stack_depth k)⎤.
 Proof.
   iIntros "($ & #L) P". by iApply stack_level_embed.
 Qed.
 
-Lemma wp_assign E x e Q : wp_expr E e (λ v, (∃ v0, x ↦v v0) ∗
-  ▷ (x ↦v v -∗ Q)) ⊢ wp E (Sassign x e) Q.
+Lemma wp_assign E x e Q : wp_expr E e (λ v, (∃ v0, points_to_var x v0) ∗
+  ▷ (points_to_var x v -∗ Q)) ⊢ wp E (Sassign x e) Q.
 Proof.
-  iIntros "H" (?) "N".
-  rewrite /wp wp_unfold /wp_pre /=.
-  iIntros (?????) "S".
+  iIntros "H %% Hguard".
+  rewrite /wp_sk wp_unfold /wp_pre /=.
+  iIntros "N" (?????) "S".
   iMod (wp_expr_app with "H N S") as (? He) "(N & S & (% & Hx) & Hpost)".
-  rewrite embed_fupd.
-  iApply fupd_mask_intro; first set_solver; iIntros "Hclose"; iSplit.
-  { iPureIntro; eexists _, _, _, _; split; first done; split; first done; by constructor. }
-  iIntros (??? (-> & -> & H)) "?".
-  inv H.
+  rewrite embed_fupd; iApply fupd_mask_intro; first set_solver; iIntros "Hclose".
+  iDestruct (var_e with "[$N $Hx $S]") as %Hx.
+  iSplit.
+  { iPureIntro. eexists _, (_,_), (_,_), _; split; first done; split; first done; by constructor. }
+  iIntros ((?,?)(?,?)? (-> & -> & H)); inv H; simpl in *; subst.
   eapply eval_expr_det in He; last done; subst.
-  rewrite embed_fupd; iModIntro; iNext.
-  rewrite embed_fupd; iModIntro.
-  iDestruct (var_e with "[$Hx $S $N]") as %?.
-  iMod (var_update with "[$Hx $S $N]") as "(N & ? & $)".
-  iMod "Hclose".
-  rewrite /= bi.sep_emp wp_unfold /wp_pre /=.
-  do 2 (rewrite embed_fupd; iModIntro).
-  iPoseProof (stack_top_embed with "N [-]") as "($ & H)"; last done.
+  iIntros "?".
+  rewrite embed_fupd; iModIntro; iNext; rewrite embed_fupd; iModIntro.
+  iMod (var_update with "[$N $Hx $S]") as "(N & Hx & $)".
+  iMod "Hclose"; rewrite embed_fupd; iModIntro.
+  rewrite bi.sep_emp.
+  (* iDestruct "Hguard" as "(Hguard & _)". *)
+  iApply ("Hguard" with "[-N] N").
   by iApply "Hpost".
 Qed.
+
+Lemma wp_alloc E x Q : (∃ v0, points_to_var x v0) ∗
+  ▷ (∀ l, points_to_var x (LocV l) -∗ l ↦ NumV 0 -∗ Q) ⊢ wp E (Salloc x) Q.
+Proof.
+  iIntros "H %% Hguard N".
+  rewrite wp_unfold /wp_pre /=.
+  iIntros (?????) "S".
+  iDestruct "H" as "((% & Hx) & Hpost)".
+  rewrite embed_fupd; iApply fupd_mask_intro; first set_solver; iIntros "Hclose".
+  iDestruct (var_e with "[$Hx $S $N]") as %Hx.
+  iSplit.
+  { iPureIntro. eexists _, (_,_), (_,_), _; split; first done; split; first done; apply alloc_fresh. }
+  iIntros ((?,?)(?,?)? (-> & -> & H)) "?"; inv H; simpl in *; subst.
+  rewrite embed_fupd; iModIntro; iNext; rewrite embed_fupd; iModIntro.
+  iMod (var_update with "[$Hx $S $N]") as "(N & Hx & S)".
+  iDestruct "S" as "(Hσ & % & Hρ & $)".
+  iMod (state_interp_alloc with "[$Hσ $Hρ]") as "(($ & $) & ?)"; first done.
+  iMod "Hclose"; rewrite embed_fupd; iModIntro.
+  rewrite bi.sep_emp.
+  iApply ("Hguard" with "[-N] N").
+  by iApply ("Hpost" with "[$]").
+Qed.
+
+Lemma wp_store E e1 e2 Q : wp_expr E e2 (λ v, wp_expr E e1 (λ v1, ∃ l v0, ⌜v1 = LocV l⌝ ∧
+  l ↦ v0 ∗ ▷ (l ↦ v -∗ Q))) ⊢ wp E (Sstore e1 e2) Q.
+Proof.
+  iIntros "H %% Hguard N".
+  rewrite wp_unfold /wp_pre /=.
+  iIntros (?????) "S".
+  iMod (wp_expr_app with "H N S") as (? He2) "(N & S & H)".
+  iMod (wp_expr_app with "H N S") as (? He1) "(N & S & % & % & -> & Hl & Hpost)".
+  rewrite embed_fupd; iApply fupd_mask_intro; first set_solver; iIntros "Hclose".
+  iDestruct "S" as "(Hσ & % & Hρ & ?)".
+  iDestruct (state_interp_load with "[$Hσ $Hρ] Hl") as %Hl.
+  iSplit.
+  { iPureIntro. eexists _, (_,_), (_,_), _; split; first done; split; first done; by econstructor. }
+  iIntros ((?,?)(?,?)? (-> & -> & H)) "?"; inv H; simpl in *; subst.
+  eapply eval_expr_det in He2; last done.
+  eapply eval_expr_det in He1; last done; inv He1.
+  rewrite embed_fupd; iModIntro; iNext; rewrite embed_fupd; iModIntro.
+  iMod (state_interp_store with "[$Hσ $Hρ] Hl") as "(($ & ?) & ?)"; iFrame.
+  iMod "Hclose"; rewrite embed_fupd; iModIntro.
+  rewrite bi.sep_emp.
+  iApply ("Hguard" with "[-N] N").
+  by iApply ("Hpost" with "[$]").
+Qed.
+
+Lemma stack_match_update (σ':(gmap string val * gmap loc val)) k k' : make_stack k' = make_stack k →
+  ⎡state_ctx σ'⎤ ∗ stack_match k ==∗ ⎡state_ctx σ'⎤ ∗ stack_match k'.
+Proof.
+  intros; iIntros "(($ & % & ? & N') & (N & ?))".
+  iDestruct (own_valid_2 with "N' N") as %->%excl_auth_agree_L.
+  iMod (own_update_2 with "N' N") as "($ & $)"; first apply excl_auth_update.
+  rewrite /stack_depth H; by iFrame.
+Qed.
+
+Lemma wp_seq E s1 s2 Q : wp E s1 (▷ wp E s2 Q) ⊢ wp E (Sseq s1 s2) Q.
+Proof.
+  iIntros "H %% Hguard N".
+  rewrite wp_unfold /wp_pre /=.
+  iIntros (?????) "S".
+  rewrite embed_fupd; iApply fupd_mask_intro; first set_solver; iIntros "Hclose".
+  iSplit.
+    { admit. }
+  iIntros ((?,?)(?,?)? (-> & -> & H)) "?"; inv H; simpl in *; subst.
+  rewrite embed_fupd; iModIntro; iNext; rewrite embed_fupd; iModIntro.
+  (* iMod (stack_match_update _ _ (Kseq s2 k) with "[$S $N]") as "($ & N)"; first done.
+  rewrite bi.sep_emp.
+  iMod "Hclose" as "_"; rewrite embed_fupd; iModIntro.
+  iApply ("H" with "[-N] N").
+  rewrite /guarded.
+  iSplit => /=; last by iDestruct "Hguard" as "[_ $]".
+  iIntros "H N"; rewrite wp_unfold /wp_pre /=.
+  iIntros (?????) "S".
+  rewrite embed_fupd; iApply fupd_mask_intro; first set_solver; iIntros "Hclose".
+  iSplit.
+  { iPureIntro. eexists _, (_,_), (_,_), _; split; first done; split; first done; by econstructor. }
+  iIntros ((?,?)(?,?)? (-> & -> & H)) "?"; inv H; simpl in *; subst.
+  inv H5.
+  rewrite embed_fupd; iModIntro; iNext; rewrite embed_fupd; iModIntro.
+  iMod (stack_match_update _ _ c with "[$S $N]") as "($ & N)"; first done.
+  iFrame; rewrite bi.sep_emp.
+  iMod "Hclose" as "_".
+  rewrite embed_fupd; iModIntro.
+  by iApply ("H" with "Hguard").
+Qed. *)
+Admitted.
+
+Lemma wp_if E e s1 s2 Q : wp_expr E e (λ v, ∃ n, ⌜v = NumV n⌝ ∧
+  ▷ wp E (if Z.eqb n 0 then s2 else s1) Q) ⊢ wp E (Sif e s1 s2) Q.
+Proof.
+  iIntros "H %% Hguard N".
+  rewrite wp_unfold /wp_pre /=.
+  iIntros (?????) "S".
+  iMod (wp_expr_app with "H N S") as (? He) "(N & S & % & -> & H)".
+  rewrite embed_fupd; iApply fupd_mask_intro; first set_solver; iIntros "Hclose".
+  iSplit.
+  { iPureIntro. eexists _, (_,_), (_,_), _; split; first done; split; first done; by econstructor. }
+  iIntros ((?,?)(?,?)? (-> & -> & H)) "?"; inv H; simpl in *; subst.
+  eapply eval_expr_det in He; last done; inv He.
+  rewrite embed_fupd; iModIntro; iNext; rewrite embed_fupd; iModIntro.
+  iMod "Hclose" as "_".
+  iFrame; rewrite bi.sep_emp embed_fupd; iModIntro.
+  by iApply ("H" with "Hguard").
+Qed.
+
+
+
 
 Definition get_params f := let 'Func params _ _ _ := f in params.
 Definition get_locals f := let 'Func _ locals _ _ := f in locals.
@@ -223,8 +296,8 @@ Definition call_assert E f vs x R := (⇑ (stack_retainer f -∗ stackframe f vs
     (∃ vs, ⌜stack_size f = length vs⌝ ∧ stackframe f vs) ∗
     ⇓ ((∃ v, points_to_var x v) ∗ ▷ (points_to_var x v -∗ R))))))%I.
 
-Lemma wp_exprs_app E es Q n s : wp_exprs E es Q -∗ stack_top n -∗ ⎡state_ctx s⎤ ={E}=∗
-  ∃ vs, ⌜eval_exprs' es s vs⌝ ∗ stack_top n ∗ ⎡state_ctx s⎤ ∗ Q vs.
+Lemma wp_exprs_app E es Q s k : wp_exprs E es Q -∗ stack_match k -∗ ⎡state_ctx s⎤ ={E}=∗
+  ∃ vs, ⌜eval_exprs' es (Build_state s.1 s.2 k) vs⌝ ∗ stack_match k ∗ ⎡state_ctx s⎤ ∗ Q vs.
 Proof.
   iIntros "Hes N S"; iInduction es as [|e es] "IH" forall (Q); simpl.
   - iFrame. iPureIntro; constructor.
@@ -233,7 +306,8 @@ Proof.
     iPureIntro; by constructor.
 Qed.
 
-Lemma stack_depth_max : forall k ρ n, make_stack k = (ρ, n) → ∀ m, n ≤ m → ρ !! m = None.
+Lemma stack_depth_max : forall k ρ n,
+  make_stack k = (ρ, n) → ∀ m, (n ≤ m)%nat → ρ !! m = None.
 Proof.
   induction k; simpl; try done.
   - inversion 1; intros; by rewrite lookup_empty.
@@ -241,6 +315,8 @@ Proof.
     rewrite lookup_insert_ne; last lia.
     eapply IHk; eauto; lia.
 Qed.
+
+(* Works up to here *)
 
 Lemma add_frame s n xs vs : ⎡state_ctx s⎤ ∗ stack_top n ⊢
   |==> ⎡state_ctx (s <| ρ := bind_vars xs vs |> <| k:= s.(ρ) :: s.(k) |>)⎤ ∗ ⇑ (stack_top (S n) ∗
