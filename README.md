@@ -21,9 +21,6 @@ Simply run `make`.
 
 `imp` and `imp+` has many shared components: expressions, the stack resource algebra and the state interpretation. On top of that, we define their components individually in `src/imp/` and `src/imp_plus/`, including their own semantics and proof rules. We do not model `imp+` as a strict extension of `imp`: `imp+` uses continuation in the program state and a special kind of predicate -- `postassert` -- in the logic to support `break` and `continue`, while `imp` only supports `return`ing from a function and has a more straightforward model.
 
-Both `imp` and `imp+` support two kinds of weakest precondition `wp`s: one instantiated with the standard Iris `wp` (`lifting2.v`) and one without (`lifting.v`). 
-The proof rules are the same regardless of which style.
-
 **`src/` Shared components:**
 - `expr.v` - Expression (shared by both `imp` and `imp+`)
 - `stack_ra.v` - Resource algebra for stack frames; borrowed from 
